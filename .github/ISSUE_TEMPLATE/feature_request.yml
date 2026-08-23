@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest something Dockyard should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Dockyard has firm non-goals: it never modifies the system Dock, never writes `com.apple.dock`, never spawns a subprocess, never makes a network connection, and requests no TCC permission by default. A request that needs one of those is very unlikely to be accepted, so please say how yours fits.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that you cannot do today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: What should Dockyard do instead? How does the real Dock behave here, if it does?
+    validations:
+      required: true
+  - type: dropdown
+    id: constraints
+    attributes:
+      label: Does this need any of the following?
+      multiple: true
+      options:
+        - Writing to com.apple.dock or restarting the Dock
+        - A TCC permission such as Accessibility or Screen Recording
+        - Network access
+        - Running a subprocess or AppleScript
+        - None of the above
+    validations:
+      required: true
