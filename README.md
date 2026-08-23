@@ -88,8 +88,6 @@ These are real and are not going away:
 - **Auto-hide and left/right orientation** are read and modelled, but the auto-hide reveal behaviour is not implemented in v1.
 - **Mirrored displays** get one bar, on the mirror-set primary, not one per mirrored display.
 
-`Docs/EMPIRICAL-FINDINGS.md` records what has actually been verified on hardware, including two places where macOS 26 behaves differently from earlier releases.
-
 ## How it works
 
 One source of truth, N render targets. `DockStateStore` publishes an immutable `DockSnapshot`; each display's panel subscribes to it and applies a diff. Panels never talk to each other, which is what makes "every bar shows the same state" and "one bar cannot break another" fall out of the design instead of needing coordination logic.

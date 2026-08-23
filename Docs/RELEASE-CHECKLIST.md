@@ -11,7 +11,7 @@ Run every section on real hardware before tagging. Record the results in the rel
 - [ ] `swiftlint --strict` clean
 - [ ] `swift-format lint --strict --recursive Packages Dockyard` clean
 - [ ] `Dockyard/Dockyard.entitlements` still an empty dictionary
-- [ ] `CHANGELOG.md` updated, version bumped in `Dockyard/Info.plist`
+- [ ] Version bumped in `Dockyard/Info.plist`
 
 ## 2. Signing and notarization
 

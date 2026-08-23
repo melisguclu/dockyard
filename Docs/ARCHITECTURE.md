@@ -84,4 +84,4 @@ Controllers are **pooled** for two minutes after a display disappears. Closing a
 
 Vertical placement is taken from the system rather than modelled: the display hosting the real Dock reserves a strip at its edge, visible as the difference between `frame` and `visibleFrame`, and Dockyard uses that measurement directly for its own bars. At `tilesize` 27 on macOS 26 that strip is 47 points; a ratio-based constant would have put the bar 7 points off. The ratios in `DockMetrics` are the fallback for when the Dock is auto-hidden or absent.
 
-See `Docs/GEOMETRY.md` for how the remaining constants were derived and how to re-derive them.
+`Scripts/calibrate.swift` prints the live values those ratios are checked against.

@@ -42,7 +42,7 @@ If you believe an exception is genuinely required, open an issue before writing 
 - **Everything crossing an actor boundary is a `Sendable` value type.** `NSRunningApplication` is converted to `RunningApplicationState` at the observation boundary and never stored in a snapshot.
 - **Geometry lives in `DockGeometry` and is pure.** Coordinate conversion lives in `CoordinateSpace` and nowhere else. Cocoa is bottom-left origin anchored to the primary display; CoreGraphics is top-left. Mixing them by hand is the single most common source of "the bar is on the wrong screen" bugs, so all conversion goes through those two functions and they are unit-tested against negative-origin arrangements.
 - **Diff before publishing and diff before rendering.** `didActivateApplicationNotification` fires on every app switch. Most of those changes are invisible, and they must therefore be free.
-- **Appearance constants come from the system.** If you need a number, read it from `com.apple.dock` first. If the Dock does not expose it, add it to `DockMetrics` with a value derived by `Scripts/calibrate.swift` and record how you derived it in `Docs/GEOMETRY.md`.
+- **Appearance constants come from the system.** If you need a number, read it from `com.apple.dock` first. If the Dock does not expose it, add it to `DockMetrics` with a value derived by `Scripts/calibrate.swift` and record how you derived it in the commit message, including what you measured it against.
 - **The code carries no comments.** Names, small functions, and tests carry the explanation; prose that belongs to a reader lives in `Docs/`. Please match that.
 
 ## Tests
@@ -54,7 +54,6 @@ If you believe an exception is genuinely required, open an issue before writing 
 ## Pull requests
 
 - One logical change per pull request.
-- Update `CHANGELOG.md` under `[Unreleased]` in the same pull request.
 - Note any display configuration you tested on, including macOS version and whether an external display was attached.
 - CI runs both test suites, builds the app, runs the forbidden-API lint, and checks that the entitlements file still grants nothing.
 

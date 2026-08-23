@@ -13,7 +13,6 @@
 - [ ] `(cd Packages/DockKit && swift test)` passes
 - [ ] `Scripts/lint-forbidden-apis.sh` reports `ok` for every category
 - [ ] New behaviour in `DockCore` or the geometry code has tests
-- [ ] `CHANGELOG.md` updated under `[Unreleased]`
 - [ ] No timer was added for state observation
 - [ ] No comments were added to source files
 - [ ] Nothing from the forbidden-API list was introduced
