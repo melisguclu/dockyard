@@ -21,6 +21,8 @@ public final class DockContentView: NSView {
     public private(set) var currentLayout: DockLayout = .empty
 
     private let background = NSVisualEffectView()
+    private let barMask = CALayer()
+    private let barBorder = CALayer()
     private let tileContainer = DockTileContainerView()
     private let tileHost = CALayer()
     private var tileLayers: [DockTileID: DockTileLayer] = [:]
@@ -30,7 +32,6 @@ public final class DockContentView: NSView {
     private var trackingRegion: NSTrackingArea?
     private var magnificationRampEnd: CFTimeInterval = 0
     private var appliedIndicator: CGImage?
-    private var appliedCornerRadius: CGFloat?
 
     public override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -55,13 +56,21 @@ public final class DockContentView: NSView {
         background.autoresizingMask = []
         addSubview(background)
 
+        barMask.backgroundColor = NSColor.black.cgColor
+        background.layer?.mask = barMask
+
         tileContainer.wantsLayer = true
         tileContainer.layerContentsRedrawPolicy = .never
         tileContainer.autoresizingMask = []
         addSubview(tileContainer, positioned: .above, relativeTo: background)
 
+        barBorder.borderWidth = metrics.borderWidth
+        barBorder.borderColor = DockMaterial.borderColor
+        barBorder.backgroundColor = NSColor.clear.cgColor
+
         tileHost.masksToBounds = false
         tileContainer.layer?.masksToBounds = false
+        tileContainer.layer?.addSublayer(barBorder)
         tileContainer.layer?.addSublayer(tileHost)
 
         registerForDraggedTypes([.fileURL])
@@ -131,23 +140,23 @@ public final class DockContentView: NSView {
         let indicatorChanged = indicator !== appliedIndicator
         appliedIndicator = indicator
 
+        CATransaction.begin()
         if animated {
-            NSAnimationContext.beginGrouping()
-            NSAnimationContext.current.duration = duration
-            NSAnimationContext.current.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            NSAnimationContext.current.allowsImplicitAnimation = true
+            CATransaction.setDisableActions(false)
+            CATransaction.setAnimationDuration(duration)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
         } else {
-            CATransaction.begin()
             CATransaction.setDisableActions(true)
         }
 
-        background.frame = currentLayout.barRect
-        if appliedCornerRadius != currentLayout.cornerRadius {
-            appliedCornerRadius = currentLayout.cornerRadius
-            background.layer?.cornerRadius = currentLayout.cornerRadius
-            background.layer?.borderWidth = metrics.borderWidth
-            background.layer?.borderColor = DockMaterial.borderColor
+        background.frame = bounds
+        if background.layer?.mask !== barMask {
+            background.layer?.mask = barMask
         }
+        barMask.frame = currentLayout.barRect
+        barMask.cornerRadius = currentLayout.cornerRadius
+        barBorder.frame = currentLayout.barRect
+        barBorder.cornerRadius = currentLayout.cornerRadius
 
         tileContainer.frame = bounds
         tileHost.frame = bounds
@@ -165,11 +174,7 @@ public final class DockContentView: NSView {
             )
         }
 
-        if animated {
-            NSAnimationContext.endGrouping()
-        } else {
-            CATransaction.commit()
-        }
+        CATransaction.commit()
     }
 
     public override func layout() {
