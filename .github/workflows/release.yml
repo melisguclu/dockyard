@@ -1,0 +1,98 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build, sign, notarize, publish
+    runs-on: macos-15
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Verify the tag matches Info.plist
+        run: |
+          PLIST_VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' Dockyard/Info.plist)"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "plist=$PLIST_VERSION tag=$TAG_VERSION"
+          test "$PLIST_VERSION" = "$TAG_VERSION"
+
+      - name: Test both packages
+        run: |
+          swift test --package-path Packages/DockCore
+          swift test --package-path Packages/DockKit
+
+      - name: Forbidden-API lint
+        run: Scripts/lint-forbidden-apis.sh
+
+      - name: Import the signing certificate
+        env:
+          CERTIFICATE_P12: ${{ secrets.CERTIFICATE_P12 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$CERTIFICATE_P12" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          rm certificate.p12
+
+      - name: Build, sign, and package
+        env:
+          DEVELOPER_ID_APPLICATION: ${{ secrets.DEVELOPER_ID_APPLICATION }}
+        run: Scripts/build-release.sh
+
+      - name: Notarize and staple
+        env:
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_KEY_ISSUER: ${{ secrets.NOTARY_KEY_ISSUER }}
+          NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+        run: |
+          echo "$NOTARY_KEY_P8" | base64 --decode > notary.p8
+          export NOTARY_KEY_PATH="$PWD/notary.p8"
+          VERSION="${GITHUB_REF_NAME#v}"
+          Scripts/notarize.sh "build/Dockyard-$VERSION.dmg"
+          rm notary.p8
+
+      - name: Collect verification output
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DMG="build/Dockyard-$VERSION.dmg"
+          {
+            echo '## Verification'
+            echo
+            echo '```'
+            echo "SHA-256"
+            shasum -a 256 "$DMG"
+            echo
+            echo "Entitlements"
+            codesign -d --entitlements :- build/Dockyard.app 2>&1
+            echo
+            echo "Signature"
+            codesign -dvvv --verbose=4 build/Dockyard.app 2>&1
+            echo '```'
+          } > release-notes.md
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "build/Dockyard-$VERSION.dmg" \
+            --title "Dockyard $VERSION" \
+            --notes-file release-notes.md \
+            --verify-tag
