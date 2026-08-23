@@ -1,0 +1,12 @@
+.DS_Store
+.build/
+build/
+*.xcuserdatastate
+xcuserdata/
+DerivedData/
+*.dmg
+*.iconset
+.swiftpm/
+Package.resolved
+
+PLAN.md
