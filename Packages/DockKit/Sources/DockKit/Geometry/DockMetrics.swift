@@ -7,6 +7,7 @@ public struct DockMetrics: Sendable, Equatable {
     public let screenEdgeMarginRatio: CGFloat
     public let cornerRadiusRatio: CGFloat
     public let indicatorDiameterRatio: CGFloat
+    public let indicatorInsetRatio: CGFloat
     public let separatorLengthRatio: CGFloat
     public let smallSpacerLengthRatio: CGFloat
     public let magnificationWindowTiles: CGFloat
@@ -18,6 +19,7 @@ public struct DockMetrics: Sendable, Equatable {
         screenEdgeMarginRatio: CGFloat,
         cornerRadiusRatio: CGFloat,
         indicatorDiameterRatio: CGFloat,
+        indicatorInsetRatio: CGFloat,
         separatorLengthRatio: CGFloat,
         smallSpacerLengthRatio: CGFloat,
         magnificationWindowTiles: CGFloat,
@@ -28,6 +30,7 @@ public struct DockMetrics: Sendable, Equatable {
         self.screenEdgeMarginRatio = screenEdgeMarginRatio
         self.cornerRadiusRatio = cornerRadiusRatio
         self.indicatorDiameterRatio = indicatorDiameterRatio
+        self.indicatorInsetRatio = indicatorInsetRatio
         self.separatorLengthRatio = separatorLengthRatio
         self.smallSpacerLengthRatio = smallSpacerLengthRatio
         self.magnificationWindowTiles = magnificationWindowTiles
@@ -39,7 +42,8 @@ public struct DockMetrics: Sendable, Equatable {
         barPaddingRatio: 0.1042,
         screenEdgeMarginRatio: 0.0833,
         cornerRadiusRatio: 0.2800,
-        indicatorDiameterRatio: 0.0833,
+        indicatorDiameterRatio: 0.0926,
+        indicatorInsetRatio: 0.0000,
         separatorLengthRatio: 0.2500,
         smallSpacerLengthRatio: 0.5000,
         magnificationWindowTiles: 3.0,
@@ -47,11 +51,12 @@ public struct DockMetrics: Sendable, Equatable {
     )
 
     public static let tahoe = DockMetrics(
-        interTileSpacingRatio: 0.1100,
-        barPaddingRatio: 0.2222,
-        screenEdgeMarginRatio: 0.2963,
-        cornerRadiusRatio: 0.5000,
-        indicatorDiameterRatio: 0.0833,
+        interTileSpacingRatio: 0.0741,
+        barPaddingRatio: 0.2500,
+        screenEdgeMarginRatio: 0.2037,
+        cornerRadiusRatio: 0.3500,
+        indicatorDiameterRatio: 0.0926,
+        indicatorInsetRatio: 0.0000,
         separatorLengthRatio: 0.2500,
         smallSpacerLengthRatio: 0.5000,
         magnificationWindowTiles: 3.0,

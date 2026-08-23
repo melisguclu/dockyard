@@ -343,9 +343,9 @@ struct DockGeometryTests {
             let diameter = DockGeometry.indicatorDiameter(candidate, metrics)
             let inset = DockGeometry.indicatorInset(candidate, metrics)
 
-            #expect(diameter >= 3)
+            #expect(diameter >= DockGeometry.minimumIndicatorDiameter)
             #expect(diameter <= size / 4)
-            #expect(inset >= 1)
+            #expect(inset >= 0)
             #expect(inset + diameter <= padding)
         }
     }

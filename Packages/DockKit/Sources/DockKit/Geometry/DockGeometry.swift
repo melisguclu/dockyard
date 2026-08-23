@@ -62,7 +62,7 @@ public struct DockLayoutInput: Sendable {
 }
 
 public enum DockGeometry {
-    public static let minimumSpacing: CGFloat = 3
+    public static let minimumSpacing: CGFloat = 2
     public static let minimumBarPadding: CGFloat = 5
     public static let minimumScreenEdgeMargin: CGFloat = 3
 
@@ -96,14 +96,17 @@ public enum DockGeometry {
         barThickness(appearance, metrics) * metrics.cornerRadiusRatio
     }
 
+    public static let minimumIndicatorDiameter: CGFloat = 2
+
     public static func indicatorDiameter(_ appearance: DockAppearance, _ metrics: DockMetrics) -> CGFloat {
-        max((appearance.tileSize * metrics.indicatorDiameterRatio).rounded(), 3)
+        max(appearance.tileSize * metrics.indicatorDiameterRatio, minimumIndicatorDiameter)
     }
 
     public static func indicatorInset(_ appearance: DockAppearance, _ metrics: DockMetrics) -> CGFloat {
         let padding = barPadding(appearance, metrics)
         let diameter = indicatorDiameter(appearance, metrics)
-        return max((padding - diameter) / 2, 1)
+        let requested = appearance.tileSize * metrics.indicatorInsetRatio
+        return max(min(requested, padding - diameter), 0)
     }
 
     public static func baseLength(
