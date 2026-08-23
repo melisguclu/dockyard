@@ -16,6 +16,11 @@ let package = Package(
             name: "DockKit",
             dependencies: [.product(name: "DockCore", package: "DockCore")],
             swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "DockKitTests",
+            dependencies: ["DockKit"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
 )
