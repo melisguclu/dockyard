@@ -93,7 +93,8 @@ public final class DockTileLayer {
 
         switch kind {
         case .separator:
-            separatorLayer.frame = orientation.isVertical
+            separatorLayer.frame =
+                orientation.isVertical
                 ? CGRect(x: bounds.midX - 0.5, y: bounds.minY, width: 1, height: bounds.height)
                 : CGRect(x: bounds.midX - 0.5, y: bounds.minY, width: 1, height: bounds.height)
         default:

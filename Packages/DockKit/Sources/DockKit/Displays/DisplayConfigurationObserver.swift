@@ -89,8 +89,7 @@ public final class DisplayConfigurationObserver {
         onBegin?()
     }
 
-    private nonisolated static let reconfigurationCallback: CGDisplayReconfigurationCallBack = {
-        _, flags, userInfo in
+    nonisolated private static let reconfigurationCallback: CGDisplayReconfigurationCallBack = { _, flags, userInfo in
         guard let userInfo else { return }
         let observer = Unmanaged<DisplayConfigurationObserver>
             .fromOpaque(userInfo)

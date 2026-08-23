@@ -65,7 +65,8 @@ public final class DisplayCoordinator {
         isReconfiguring = false
 
         let displays = DisplayEnumerator.current().filter { !$0.isMirrorSecondary }
-        let dockHost = policy?.suppressesPanelOnSystemDockDisplay == true
+        let dockHost =
+            policy?.suppressesPanelOnSystemDockDisplay == true
             ? SystemDockLocator.hostDisplayID(appearance: snapshot.appearance)
             : nil
         let maximumScale = DisplayEnumerator.maximumBackingScaleFactor()

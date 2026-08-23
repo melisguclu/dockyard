@@ -16,7 +16,7 @@ public final class IndicatorRenderer {
         if let cached = cache[key] { return cached }
 
         guard pixels > 0,
-              let context = CGContext(
+            let context = CGContext(
                 data: nil,
                 width: pixels,
                 height: pixels,
@@ -25,10 +25,11 @@ public final class IndicatorRenderer {
                 space: CGColorSpaceCreateDeviceRGB(),
                 bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
                     | CGBitmapInfo.byteOrder32Little.rawValue
-              )
+            )
         else { return nil }
 
-        let color = isDark
+        let color =
+            isDark
             ? NSColor.white.withAlphaComponent(0.85)
             : NSColor.black.withAlphaComponent(0.65)
         context.setFillColor(color.cgColor)

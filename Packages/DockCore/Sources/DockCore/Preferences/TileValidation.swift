@@ -59,8 +59,8 @@ public enum TileValidation {
     ) -> URL? {
         guard let candidate = resolveFileURL(from: urlString, environment: environment) else { return nil }
         guard candidate.pathExtension == "app",
-              environment.fileExists(candidate),
-              environment.isLaunchableApplicationBundle(candidate)
+            environment.fileExists(candidate),
+            environment.isLaunchableApplicationBundle(candidate)
         else { return nil }
         return candidate
     }
@@ -77,10 +77,10 @@ public enum TileValidation {
 
     public static func resolveWebURL(from urlString: String?) -> URL? {
         guard let urlString,
-              let url = URL(string: urlString),
-              let scheme = url.scheme?.lowercased(),
-              scheme == "http" || scheme == "https",
-              url.host?.isEmpty == false
+            let url = URL(string: urlString),
+            let scheme = url.scheme?.lowercased(),
+            scheme == "http" || scheme == "https",
+            url.host?.isEmpty == false
         else { return nil }
         return url
     }
@@ -88,7 +88,8 @@ public enum TileValidation {
     public static func sanitizedLabel(_ label: String?, fallback: String) -> String {
         let candidate = label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let chosen = candidate.isEmpty ? fallback : candidate
-        return chosen
+        return
+            chosen
             .components(separatedBy: .newlines)
             .joined(separator: " ")
             .clampedLength(to: DockTile.maximumLabelLength)
@@ -115,7 +116,7 @@ public enum TileValidation {
         environment: TileEnvironment
     ) -> DockEntry? {
         guard let url = resolveFileURL(from: entry.urlString, environment: environment),
-              environment.directoryExists(url)
+            environment.directoryExists(url)
         else {
             DockLog.preferences.debug("Dropping directory-tile with unresolvable path")
             return nil

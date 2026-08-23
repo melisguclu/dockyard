@@ -2,9 +2,9 @@ import AppKit
 import Foundation
 
 public final class DockPanel: NSPanel {
-    public override var canBecomeKey: Bool { false }
-    public override var canBecomeMain: Bool { false }
-    public override var acceptsFirstResponder: Bool { false }
+    override public var canBecomeKey: Bool { false }
+    override public var canBecomeMain: Bool { false }
+    override public var acceptsFirstResponder: Bool { false }
 
     public static func make() -> DockPanel {
         let panel = DockPanel(
@@ -19,7 +19,7 @@ public final class DockPanel: NSPanel {
             .canJoinAllSpaces,
             .stationary,
             .ignoresCycle,
-            .fullScreenAuxiliary
+            .fullScreenAuxiliary,
         ]
         panel.isOpaque = false
         panel.backgroundColor = .clear

@@ -60,15 +60,14 @@ public enum DockPreferencesDecoder {
     }
 
     private static func urlString(from tileData: [String: Any]) -> String? {
-        if let fileData = tileData["file-data"] as? [String: Any],
-           let string = nonEmptyString(fileData["_CFURLString"]) {
-            return string
-        }
-        if let urlData = tileData["url"] as? [String: Any],
-           let string = nonEmptyString(urlData["_CFURLString"]) {
-            return string
-        }
+        if let string = cfurlString(in: tileData["file-data"]) { return string }
+        if let string = cfurlString(in: tileData["url"]) { return string }
         return nonEmptyString(tileData["_CFURLString"])
+    }
+
+    private static func cfurlString(in value: Any?) -> String? {
+        guard let container = value as? [String: Any] else { return nil }
+        return nonEmptyString(container["_CFURLString"])
     }
 
     private static func nonEmptyString(_ value: Any?) -> String? {

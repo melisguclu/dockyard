@@ -17,7 +17,7 @@ public final class RunningApplicationsObserver {
         NSWorkspace.didActivateApplicationNotification,
         NSWorkspace.didDeactivateApplicationNotification,
         NSWorkspace.didHideApplicationNotification,
-        NSWorkspace.didUnhideApplicationNotification
+        NSWorkspace.didUnhideApplicationNotification,
     ]
 
     public init() {}
@@ -38,13 +38,13 @@ public final class RunningApplicationsObserver {
                 queue: .main
             ) { [weak self] notification in
                 let notificationName = notification.name
-                let launchedPath = (notification.userInfo?[NSWorkspace.applicationUserInfoKey]
+                let launchedPath =
+                    (notification.userInfo?[NSWorkspace.applicationUserInfoKey]
                     as? NSRunningApplication)?.bundleURL?.standardizedFileURL.path
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.refresh()
-                    if notificationName == NSWorkspace.didLaunchApplicationNotification,
-                       let launchedPath {
+                    if notificationName == NSWorkspace.didLaunchApplicationNotification, let launchedPath {
                         self.onLaunch?(launchedPath)
                     }
                     self.onChange?()

@@ -69,7 +69,7 @@ public enum SystemDockLocator {
         var best: (area: CGFloat, displayID: CGDirectDisplayID)?
         for window in candidates {
             guard let boundsDictionary = window[kCGWindowBounds as String] as? [String: Any],
-                  let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
+                let bounds = CGRect(dictionaryRepresentation: boundsDictionary as CFDictionary)
             else { continue }
 
             let cocoaBounds = CoordinateSpace.cgToCocoa(bounds, primaryHeight: primaryHeight)

@@ -53,7 +53,10 @@ public enum DisplayEnumerator {
         for screen in NSScreen.screens {
             guard let displayID = displayID(of: screen) else { continue }
 
-            let triple = "\(CGDisplayVendorNumber(displayID))-\(CGDisplayModelNumber(displayID))-\(CGDisplaySerialNumber(displayID))"
+            let vendor = CGDisplayVendorNumber(displayID)
+            let model = CGDisplayModelNumber(displayID)
+            let serial = CGDisplaySerialNumber(displayID)
+            let triple = "\(vendor)-\(model)-\(serial)"
             let ordinal = seenTriples[triple] ?? 0
             seenTriples[triple] = ordinal + 1
 

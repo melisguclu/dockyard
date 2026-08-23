@@ -90,10 +90,12 @@ public enum TileOrdering {
         }
 
         mutating func appendRunningOnly(_ application: RunningApplicationState) {
-            guard let identifier = identifier(
-                bundleIdentifier: application.bundleIdentifier,
-                path: application.canonicalPath
-            ) else { return }
+            guard
+                let identifier = identifier(
+                    bundleIdentifier: application.bundleIdentifier,
+                    path: application.canonicalPath
+                )
+            else { return }
             guard usedIdentifiers.insert(identifier).inserted else { return }
 
             tiles.append(
@@ -142,10 +144,12 @@ public enum TileOrdering {
         }
 
         private mutating func appendApplication(_ entry: DockEntry, isPinned: Bool) {
-            guard let identifier = identifier(
-                bundleIdentifier: entry.bundleIdentifier,
-                path: entry.canonicalPath
-            ) else { return }
+            guard
+                let identifier = identifier(
+                    bundleIdentifier: entry.bundleIdentifier,
+                    path: entry.canonicalPath
+                )
+            else { return }
             guard usedIdentifiers.insert(identifier).inserted else { return }
 
             let instances = matches(for: entry)
@@ -196,8 +200,7 @@ public enum TileOrdering {
         }
 
         private func matches(for entry: DockEntry) -> [RunningApplicationState] {
-            if let bundleIdentifier = entry.bundleIdentifier,
-               let instances = runningByBundleIdentifier[bundleIdentifier] {
+            if let identifier = entry.bundleIdentifier, let instances = runningByBundleIdentifier[identifier] {
                 return instances
             }
             if let path = entry.canonicalPath, let instances = runningByPath[path] {

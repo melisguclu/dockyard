@@ -92,7 +92,8 @@ public actor IconProvider {
     )
 
     private static func trashImage(isEmpty: Bool) -> NSImage? {
-        let candidates = isEmpty
+        let candidates =
+            isEmpty
             ? ["s-trashempty@2x.png", "trashempty@2x.png"]
             : ["s-trashfull@2x.png", "trashfull@2x.png"]
         for candidate in candidates {
@@ -116,15 +117,17 @@ public actor IconProvider {
             return nil
         }
 
-        guard let context = CGContext(
-            data: nil,
-            width: size,
-            height: size,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else {
+        guard
+            let context = CGContext(
+                data: nil,
+                width: size,
+                height: size,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            )
+        else {
             return representation
         }
 

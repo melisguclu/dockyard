@@ -241,22 +241,15 @@ public enum DockGeometry {
 
         let barStart = (starts.first ?? contentStart) - padding
         let barEnd = (starts.last ?? contentStart) + (magnifiedLengths.last ?? 0) + padding
-        var shift: CGFloat = 0
-        if barStart < 0 {
-            shift = -barStart
-        } else if barEnd > available {
-            shift = max(available - barEnd, -barStart)
-        }
+        let shift = edgeShift(barStart: barStart, barEnd: barEnd, available: available)
         if shift != 0 {
             starts = starts.map { $0 + shift }
         }
 
         let thickness = barThickness(appearance, metrics)
         let barRect = rect(
-            along: (starts.first ?? contentStart) - padding,
-            alongLength: max(barEnd - barStart, 0),
-            across: margin,
-            acrossLength: thickness,
+            along: Span(start: (starts.first ?? contentStart) - padding, length: max(barEnd - barStart, 0)),
+            across: Span(start: margin, length: thickness),
             panelSize: input.panelSize,
             orientation: appearance.orientation
         )
@@ -264,16 +257,12 @@ public enum DockGeometry {
         var frames: [CGRect] = []
         frames.reserveCapacity(tiles.count)
         for index in tiles.indices {
-            let scale = scales[index]
-            let acrossLength = tiles[index].occupiesTileSlot
-                ? appearance.tileSize * scale
-                : appearance.tileSize
+            let scale = tiles[index].occupiesTileSlot ? scales[index] : 1
+            let acrossLength = appearance.tileSize * scale
             frames.append(
                 rect(
-                    along: starts[index],
-                    alongLength: magnifiedLengths[index],
-                    across: margin + padding,
-                    acrossLength: acrossLength,
+                    along: Span(start: starts[index], length: magnifiedLengths[index]),
+                    across: Span(start: margin + padding, length: acrossLength),
                     panelSize: input.panelSize,
                     orientation: appearance.orientation
                 )
@@ -316,8 +305,8 @@ public enum DockGeometry {
     ) -> CGFloat? {
         guard let cursorAlong = alongCursor(input) else { return nil }
         guard let stripStart = unmagnifiedStarts.first,
-              let lastStart = unmagnifiedStarts.last,
-              let lastLength = baseLengths.last
+            let lastStart = unmagnifiedStarts.last,
+            let lastLength = baseLengths.last
         else { return nil }
         return cursorAlong.clamped(to: stripStart...(lastStart + lastLength))
     }
@@ -389,31 +378,40 @@ public enum DockGeometry {
         return starts
     }
 
+    private static func edgeShift(barStart: CGFloat, barEnd: CGFloat, available: CGFloat) -> CGFloat {
+        if barStart < 0 { return -barStart }
+        if barEnd > available { return max(available - barEnd, -barStart) }
+        return 0
+    }
+
     private static func rect(
-        along: CGFloat,
-        alongLength: CGFloat,
-        across: CGFloat,
-        acrossLength: CGFloat,
+        along: Span,
+        across: Span,
         panelSize: CGSize,
         orientation: DockOrientation
     ) -> CGRect {
         switch orientation {
         case .bottom:
-            return CGRect(x: along, y: across, width: alongLength, height: acrossLength)
+            return CGRect(x: along.start, y: across.start, width: along.length, height: across.length)
         case .left:
             return CGRect(
-                x: across,
-                y: panelSize.height - along - alongLength,
-                width: acrossLength,
-                height: alongLength
+                x: across.start,
+                y: panelSize.height - along.start - along.length,
+                width: across.length,
+                height: along.length
             )
         case .right:
             return CGRect(
-                x: panelSize.width - across - acrossLength,
-                y: panelSize.height - along - alongLength,
-                width: acrossLength,
-                height: alongLength
+                x: panelSize.width - across.start - across.length,
+                y: panelSize.height - along.start - along.length,
+                width: across.length,
+                height: along.length
             )
         }
     }
+}
+
+private struct Span {
+    let start: CGFloat
+    let length: CGFloat
 }

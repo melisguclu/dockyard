@@ -32,15 +32,17 @@ public enum CalendarTileRenderer {
         let height = base.height
         guard width > 16, height > 16 else { return nil }
 
-        guard let context = CGContext(
-            data: nil,
-            width: width,
-            height: height,
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        ) else { return nil }
+        guard
+            let context = CGContext(
+                data: nil,
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+            )
+        else { return nil }
 
         let canvas = CGRect(x: 0, y: 0, width: width, height: height)
         context.draw(base, in: canvas)
@@ -101,7 +103,7 @@ public enum CalendarTileRenderer {
 
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            NSAttributedString.Key(kCTForegroundColorAttributeName as String): color
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): color,
         ]
         let line = CTLineCreateWithAttributedString(
             NSAttributedString(string: text, attributes: attributes)
