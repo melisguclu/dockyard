@@ -14,14 +14,16 @@ struct DockGeometryTests {
         tiles: [DockTile],
         appearance: DockAppearance,
         panelSize: CGSize = CGSize(width: 1512, height: 200),
-        cursor: CGPoint? = nil
+        cursor: CGPoint? = nil,
+        magnificationAmount: CGFloat = 1
     ) -> DockLayoutInput {
         DockLayoutInput(
             tiles: tiles,
             appearance: appearance,
             metrics: metrics,
             panelSize: panelSize,
-            cursor: cursor
+            cursor: cursor,
+            magnificationAmount: magnificationAmount
         )
     }
 
@@ -258,6 +260,103 @@ struct DockGeometryTests {
             input(tiles: tiles, appearance: plain, cursor: CGPoint(x: 700, y: 20))
         )
         #expect(layout.tileScales.allSatisfy { $0 == 1 })
+    }
+
+    @Test("A ramp amount of zero reproduces the resting layout exactly")
+    func zeroRampAmountMatchesRest() {
+        let tiles = TileFactory.applications(7)
+        let cursor = CGPoint(x: 700, y: 20)
+        let resting = DockGeometry.layout(input(tiles: tiles, appearance: appearance))
+        let ramped = DockGeometry.layout(
+            input(tiles: tiles, appearance: appearance, cursor: cursor, magnificationAmount: 0)
+        )
+        #expect(ramped.tileFrames == resting.tileFrames)
+        #expect(ramped.barRect == resting.barRect)
+        #expect(ramped.tileScales.allSatisfy { $0 == 1 })
+    }
+
+    @Test("The ramp amount interpolates monotonically towards full magnification")
+    func rampAmountIsMonotonic() {
+        let tiles = TileFactory.applications(7)
+        let cursor = CGPoint(x: 700, y: 20)
+        let peaks = stride(from: CGFloat(0), through: 1, by: 0.125).map { amount in
+            DockGeometry.layout(
+                input(tiles: tiles, appearance: appearance, cursor: cursor, magnificationAmount: amount)
+            ).tileScales.max() ?? 0
+        }
+
+        for (previous, next) in zip(peaks, peaks.dropFirst()) {
+            #expect(next > previous)
+        }
+
+        let full = DockGeometry.layout(input(tiles: tiles, appearance: appearance, cursor: cursor))
+        #expect(peaks.last == full.tileScales.max())
+    }
+
+    @Test("A ramp amount outside the unit range is clamped rather than extrapolated")
+    func rampAmountIsClamped() {
+        let tiles = TileFactory.applications(5)
+        let cursor = CGPoint(x: 700, y: 20)
+        let full = DockGeometry.layout(input(tiles: tiles, appearance: appearance, cursor: cursor))
+        let over = DockGeometry.layout(
+            input(tiles: tiles, appearance: appearance, cursor: cursor, magnificationAmount: 4)
+        )
+        let under = DockGeometry.layout(
+            input(tiles: tiles, appearance: appearance, cursor: cursor, magnificationAmount: -2)
+        )
+        #expect(over.tileFrames == full.tileFrames)
+        #expect(under.tileScales.allSatisfy { $0 == 1 })
+    }
+
+    @Test("The macOS 26 magnification window matches the measured Dock")
+    func measuredMagnificationWindow() {
+        #expect(DockMetrics.tahoe.magnificationWindowTiles == 3.9)
+
+        let real = DockMetrics.tahoe
+        let candidate = DockAppearance(tileSize: 27, largeSize: 48, magnificationEnabled: true)
+        let tiles = TileFactory.applications(40)
+        let panel = CGSize(width: 2400, height: 200)
+
+        func layout(cursorX: CGFloat?) -> DockLayout {
+            DockGeometry.layout(
+                DockLayoutInput(
+                    tiles: tiles,
+                    appearance: candidate,
+                    metrics: real,
+                    panelSize: panel,
+                    cursor: cursorX.map { CGPoint(x: $0, y: 20) }
+                )
+            )
+        }
+
+        let cursorX = layout(cursorX: nil).tileFrames[20].midX
+        let frames = layout(cursorX: cursorX).tileFrames
+
+        var predicted: [(CGFloat, CGFloat)] = []
+        for index in 0..<(frames.count - 1) {
+            let pitch = frames[index + 1].midX - frames[index].midX
+            let midpoint = (frames[index].midX + frames[index + 1].midX) / 2
+            predicted.append((midpoint - cursorX, pitch))
+        }
+
+        func pitch(at distance: CGFloat) -> CGFloat {
+            guard let after = predicted.firstIndex(where: { $0.0 >= distance }), after > 0 else {
+                return predicted.last?.1 ?? 0
+            }
+            let (d0, p0) = predicted[after - 1]
+            let (d1, p1) = predicted[after]
+            return p0 + (p1 - p0) * (distance - d0) / (d1 - d0)
+        }
+
+        let measured: [(distance: CGFloat, pitch: CGFloat)] = [
+            (-138.6, 30.17), (-115.2, 34.50), (-94.1, 39.12), (-64.8, 46.00),
+            (-26.8, 48.50), (23.5, 47.94), (36.8, 48.12), (69.9, 42.45),
+            (88.3, 39.58), (113.3, 33.96), (136.3, 30.67)
+        ]
+
+        for sample in measured {
+            #expect(abs(pitch(at: sample.distance) - sample.pitch) < 3.0)
+        }
     }
 
     @Test("A vertical dock stacks its tiles from the top down")

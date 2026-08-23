@@ -42,6 +42,7 @@ public struct DockLayoutInput: Sendable {
     public let metrics: DockMetrics
     public let panelSize: CGSize
     public let cursor: CGPoint?
+    public let magnificationAmount: CGFloat
     public let reservedStrip: CGFloat?
 
     public init(
@@ -50,6 +51,7 @@ public struct DockLayoutInput: Sendable {
         metrics: DockMetrics = .current,
         panelSize: CGSize,
         cursor: CGPoint? = nil,
+        magnificationAmount: CGFloat = 1,
         reservedStrip: CGFloat? = nil
     ) {
         self.tiles = tiles
@@ -57,6 +59,7 @@ public struct DockLayoutInput: Sendable {
         self.metrics = metrics
         self.panelSize = panelSize
         self.cursor = cursor
+        self.magnificationAmount = magnificationAmount.clamped(to: 0...1)
         self.reservedStrip = reservedStrip
     }
 }
@@ -290,6 +293,7 @@ public enum DockGeometry {
     private static func alongCursor(_ input: DockLayoutInput) -> CGFloat? {
         guard input.appearance.magnificationEnabled, let cursor = input.cursor else { return nil }
         guard input.appearance.effectiveLargeSize > input.appearance.tileSize else { return nil }
+        guard input.magnificationAmount > 0 else { return nil }
         switch input.appearance.orientation {
         case .bottom:
             return cursor.x
@@ -313,7 +317,8 @@ public enum DockGeometry {
         let pitch = appearance.tileSize + spacing(appearance, metrics)
         let maximum = MagnificationCurve.maximumScale(
             tileSize: appearance.tileSize,
-            largeSize: appearance.effectiveLargeSize
+            largeSize: appearance.effectiveLargeSize,
+            amount: input.magnificationAmount
         )
 
         return tiles.indices.map { index in

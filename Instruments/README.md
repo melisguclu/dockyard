@@ -28,6 +28,8 @@ Instruments: **Core Animation FPS**, **Time Profiler**, **os_signpost**.
 
 Method: enable Dock magnification in System Settings, record while sweeping the cursor across a bar at natural speed for about 10 seconds. Expect `panel-layout` intervals under 4 ms on Apple silicon and no dropped frames. `panel-layout` durations that grow with tile count point at a layout regression; a rising Time Profiler cost inside image decoding means an icon is being re-rasterized per frame instead of cached.
 
+Magnification is driven by a display link, so exactly one `panel-layout` interval per vsync is the healthy shape while the cursor moves, and none at all while it holds still. Two intervals inside one refresh period means something outside the link is forcing a layout. A gap longer than one refresh period while the cursor is still moving means the main thread missed a display-link callback, which is the only way this design can drop a frame.
+
 ## Memory
 
 Purpose: catch leaks across display and preference churn.

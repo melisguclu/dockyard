@@ -172,6 +172,6 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         )
         panel.setFrame(frame, display: false)
         contentView.frame = CGRect(origin: .zero, size: frame.size)
-        contentView.relayout(animated: false)
+        contentView.relayout()
     }
 }
