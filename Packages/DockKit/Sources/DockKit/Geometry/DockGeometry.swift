@@ -213,16 +213,23 @@ public enum DockGeometry {
             cursorWalk += length + gap
         }
 
+        let cursorAlong = tileStripCursor(
+            input,
+            unmagnifiedStarts: unmagnifiedStarts,
+            baseLengths: baseLengths
+        )
+
         let scales = tileScales(
             tiles: tiles,
             baseLengths: baseLengths,
             unmagnifiedStarts: unmagnifiedStarts,
+            cursorAlong: cursorAlong,
             input: input
         )
         let magnifiedLengths = zip(baseLengths, scales).map { $0 * $1 }
 
         var starts = unmagnifiedStarts
-        if let cursorAlong = alongCursor(input) {
+        if let cursorAlong {
             starts = anchoredStarts(
                 cursorAlong: cursorAlong,
                 unmagnifiedStarts: unmagnifiedStarts,
@@ -302,13 +309,27 @@ public enum DockGeometry {
         }
     }
 
+    private static func tileStripCursor(
+        _ input: DockLayoutInput,
+        unmagnifiedStarts: [CGFloat],
+        baseLengths: [CGFloat]
+    ) -> CGFloat? {
+        guard let cursorAlong = alongCursor(input) else { return nil }
+        guard let stripStart = unmagnifiedStarts.first,
+              let lastStart = unmagnifiedStarts.last,
+              let lastLength = baseLengths.last
+        else { return nil }
+        return cursorAlong.clamped(to: stripStart...(lastStart + lastLength))
+    }
+
     private static func tileScales(
         tiles: [DockTile],
         baseLengths: [CGFloat],
         unmagnifiedStarts: [CGFloat],
+        cursorAlong: CGFloat?,
         input: DockLayoutInput
     ) -> [CGFloat] {
-        guard let cursorAlong = alongCursor(input) else {
+        guard let cursorAlong else {
             return Array(repeating: 1, count: tiles.count)
         }
 

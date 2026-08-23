@@ -200,6 +200,34 @@ struct DockGeometryTests {
         }
     }
 
+    @Test("Moving inside the bar padding never nudges the layout")
+    func paddingDoesNotDragTheBar() {
+        let tiles = TileFactory.applications(9)
+        let padding = DockGeometry.barPadding(appearance, metrics)
+        let resting = DockGeometry.layout(input(tiles: tiles, appearance: appearance))
+
+        func layout(cursorX: CGFloat) -> DockLayout {
+            DockGeometry.layout(
+                input(tiles: tiles, appearance: appearance, cursor: CGPoint(x: cursorX, y: 20))
+            )
+        }
+
+        let leadingEdge = resting.tileFrames[0].minX
+        let trailingEdge = resting.tileFrames[tiles.count - 1].maxX
+
+        for offset in stride(from: CGFloat(0), through: padding, by: 1) {
+            let leading = layout(cursorX: leadingEdge - offset)
+            let trailing = layout(cursorX: trailingEdge + offset)
+            #expect(abs(leading.barRect.minX - layout(cursorX: leadingEdge).barRect.minX) < 0.01)
+            #expect(abs(trailing.barRect.maxX - layout(cursorX: trailingEdge).barRect.maxX) < 0.01)
+            #expect(leading.tileFrames[0].minX == layout(cursorX: leadingEdge).tileFrames[0].minX)
+            #expect(
+                trailing.tileFrames[tiles.count - 1].maxX
+                    == layout(cursorX: trailingEdge).tileFrames[tiles.count - 1].maxX
+            )
+        }
+    }
+
     @Test("Magnified tiles never leave the panel at either edge")
     func magnifiedLayoutIsClamped() {
         let tiles = TileFactory.applications(9)
