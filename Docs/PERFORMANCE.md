@@ -11,6 +11,8 @@ Performance is a correctness requirement here, not an optimisation. An always-ru
 | Resident memory | < 60 MB | Same, after an hour of uptime |
 | Peak CPU during magnification | < 8% of one core | Cursor swept across the bar at natural speed |
 | Frame time during magnification | < 4 ms | Instruments Core Animation, Apple silicon, 120 Hz |
+| Magnification frame rate | every changed frame presented on the next vsync | Cursor swept across the bar at natural speed |
+| CPU with the cursor resting on a bar | < 0.5% | Pointer motionless over the bar for 10 s |
 | Preference change to visible update | < 150 ms p95 | `defaults write` on the Dock domain, or the System Settings slider |
 | Launch or quit to indicator update | < 100 ms p95 | |
 | Display reconfiguration to repositioned bars | < 700 ms | Includes the 350 ms settle debounce |
@@ -27,20 +29,43 @@ Resident memory       37 MB
 Network sockets       0
 ```
 
-Idle wakeups and magnification frame time still need a `powermetrics` and Instruments run on real hardware; they are release-checklist items, not measured yet.
+Magnification, same machine, 33 seconds of sustained cursor sweeping across a bar on a
+60 Hz display, sampled by a temporary display-link probe counting vsyncs, pointer samples
+and layout passes:
+
+```
+Render rate             p50 59.0 fps, mean 57.5, min 49.0    (60 Hz ceiling)
+Frames needing a redraw that missed their vsync   0
+Interval between presented frames   p95 17.25 ms, worst 19.52 ms
+Display link                        60.0 Hz throughout, no dropped callbacks
+panel-layout                        p50 0.17 ms, worst 4.6 ms
+CPU, pointer motionless on the bar  0.0%
+CPU, pointer away from every bar    0.0%
+```
+
+The render rate sits below 60 whenever the pointer holds still for a frame, because a frame
+whose geometry is identical to the presented one is skipped rather than recommitted. The
+number that matters is the second line: no frame that had something new to show was ever
+late. Before magnification was moved onto a display link the same sweep measured a mean of
+46.4 fps with 22.9% of vsyncs showing stale geometry.
+
+Idle wakeups still need a `powermetrics` run on real hardware; that is a release-checklist
+item, not measured yet.
 
 ## The rules that produce these numbers
 
-1. **No timers for observation.** Every state change has a push notification. The only permitted timers are user-initiated and short-lived: the reconfiguration settle debounce, the watcher debounces, and the magnification exit animation.
+1. **No timers for observation.** Every state change has a push notification. The only permitted timers are user-initiated and short-lived: the reconfiguration settle debounce and the watcher debounces.
 2. **Diff before publishing.** `didActivateApplicationNotification` fires on every app switch, and most switches do not change the rendered output. The store compares tiles and appearance and publishes nothing when they match. This single decision is responsible for most of the idle CPU budget.
-3. **Diff before rendering.** A panel receiving a snapshot mutates only the layers that changed. Stable `DockTileID` identity is what makes that possible: a tile that moves keeps its layer and animates to a new position instead of being rebuilt.
+3. **Diff before rendering.** A panel receiving a snapshot mutates only the layers that changed. Stable `DockTileID` identity is what makes that possible: a tile that moves keeps its layer and is repositioned instead of being rebuilt.
 4. **Rasterize once.** Icons become a `CGImage` at `largesize × maximum backing scale` one time and are cached. Magnification is then a GPU transform on that image. No `NSImage.draw` exists in any hot path. The maximum is taken across all attached displays so a tile does not need re-rasterizing when a panel moves between a Retina and non-Retina screen.
 5. **Layer-backed, never view-drawn.** There is no `NSView.draw(_:)` override anywhere in the tile rendering path.
-6. **Implicit animations disabled in hot paths.** Every layout pass runs inside `CATransaction` with actions disabled. Without that, each position assignment schedules a quarter-second implicit animation and the compositor never goes idle.
-7. **Controller pooling.** A disappearing display's controller is retained for two minutes rather than deallocated, so closing and reopening a lid reuses a warm layer tree.
-8. **Lazy settings.** The SwiftUI settings window and its dependencies are not instantiated until the user opens it. SwiftUI's first-use cost should not be paid by users who never open the window.
-9. **Value types in the snapshot.** Nothing reference-counted crosses the actor boundary, so there is no retain and release traffic on the main thread and the snapshot is free to copy.
-10. **Bounded caches.** The icon cache is an `NSCache` with an explicit `totalCostLimit` in bytes, so memory pressure evicts icons, which are cheap to regenerate, rather than the process growing.
+6. **Implicit animations disabled everywhere.** Every layout pass runs inside `CATransaction` with actions disabled. Without that, each position assignment schedules a quarter-second implicit animation and the compositor never goes idle.
+7. **Magnification is driven by a display link, not by mouse events.** `mouseMoved` only starts the link; each vsync samples the pointer with `NSEvent.mouseLocation` and lays out once. Tying frame production to event delivery instead means a vsync that receives no event shows stale geometry and a vsync that receives two throws one away, which measured as 46 fps and a visible beat on a 60 Hz display. The magnification ramp is advanced per frame from the frame delta rather than handed to Core Animation, so a moving cursor never restarts an in-flight animation and there is no discontinuity when the ramp ends.
+8. **Nothing is recommitted unchanged.** The link skips the layout pass when neither the pointer position nor the ramp has moved since the last presented frame, and invalidates itself once that has held for twelve frames. A pointer parked on a bar therefore costs nothing; `mouseMoved` and `mouseExited` restart the link.
+9. **Controller pooling.** A disappearing display's controller is retained for two minutes rather than deallocated, so closing and reopening a lid reuses a warm layer tree.
+10. **Lazy settings.** The SwiftUI settings window and its dependencies are not instantiated until the user opens it. SwiftUI's first-use cost should not be paid by users who never open the window.
+11. **Value types in the snapshot.** Nothing reference-counted crosses the actor boundary, so there is no retain and release traffic on the main thread and the snapshot is free to copy.
+12. **Bounded caches.** The icon cache is an `NSCache` with an explicit `totalCostLimit` in bytes, so memory pressure evicts icons, which are cheap to regenerate, rather than the process growing.
 
 ## Measuring
 

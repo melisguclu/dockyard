@@ -30,7 +30,13 @@ public final class DockContentView: NSView {
     private var pressedIdentifier: DockTileID?
     private var dropTargetIdentifier: DockTileID?
     private var trackingRegion: NSTrackingArea?
-    private var magnificationRampEnd: CFTimeInterval = 0
+    private var frameLink: CADisplayLink?
+    private var magnification: CGFloat = 0
+    private var magnificationTarget: CGFloat = 0
+    private var lastTick: CFTimeInterval = 0
+    private var appliedCursor: CGPoint?
+    private var appliedMagnification: CGFloat = .nan
+    private var settledTicks = 0
     private var appliedIndicator: CGImage?
 
     public override init(frame frameRect: NSRect) {
@@ -103,7 +109,11 @@ public final class DockContentView: NSView {
             requestIcon(for: tile)
         }
 
-        relayout(animated: false)
+        if !magnificationAvailable {
+            magnificationTarget = 0
+        }
+
+        relayout()
     }
 
     public func setIcon(_ image: CGImage?, for identifier: DockTileID) {
@@ -117,7 +127,7 @@ public final class DockContentView: NSView {
         }
     }
 
-    public func relayout(animated: Bool, duration: CFTimeInterval = DockContentView.exitRampDuration) {
+    public func relayout() {
         let state = DockLog.signposts.beginInterval("panel-layout")
         defer { DockLog.signposts.endInterval("panel-layout", state) }
 
@@ -128,6 +138,7 @@ public final class DockContentView: NSView {
                 metrics: metrics,
                 panelSize: bounds.size,
                 cursor: cursor,
+                magnificationAmount: magnification,
                 reservedStrip: reservedStrip
             )
         )
@@ -141,13 +152,7 @@ public final class DockContentView: NSView {
         appliedIndicator = indicator
 
         CATransaction.begin()
-        if animated {
-            CATransaction.setDisableActions(false)
-            CATransaction.setAnimationDuration(duration)
-            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(name: .easeOut))
-        } else {
-            CATransaction.setDisableActions(true)
-        }
+        CATransaction.setDisableActions(true)
 
         background.frame = bounds
         if background.layer?.mask !== barMask {
@@ -175,18 +180,31 @@ public final class DockContentView: NSView {
         }
 
         CATransaction.commit()
+
+        appliedCursor = cursor
+        appliedMagnification = magnification
     }
 
     public override func layout() {
         super.layout()
-        relayout(animated: false)
+        relayout()
         updateTrackingAreas()
+    }
+
+    public override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window == nil {
+            stopFrameLink()
+            magnification = 0
+            magnificationTarget = 0
+            cursor = nil
+        }
     }
 
     public override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         IndicatorRenderer.shared.invalidate()
-        relayout(animated: false)
+        relayout()
     }
 
     public override func updateTrackingAreas() {
@@ -216,15 +234,16 @@ public final class DockContentView: NSView {
     }
 
     public override func mouseEntered(with event: NSEvent) {
-        trackCursor(to: location(of: event))
+        startFrameLink()
     }
 
     public override func mouseMoved(with event: NSEvent) {
-        trackCursor(to: location(of: event))
+        startFrameLink()
     }
 
     public override func mouseExited(with event: NSEvent) {
-        releaseCursor()
+        magnificationTarget = 0
+        startFrameLink()
     }
 
     public override func mouseDown(with event: NSEvent) {
@@ -293,39 +312,73 @@ public final class DockContentView: NSView {
         convert(event.locationInWindow, from: nil)
     }
 
-    private func trackCursor(to point: CGPoint) {
-        guard interactiveRect.contains(point) else {
-            releaseCursor()
-            return
-        }
-        guard snapshot.appearance.magnificationEnabled,
-              snapshot.appearance.effectiveLargeSize > snapshot.appearance.tileSize
-        else { return }
-
-        let now = CACurrentMediaTime()
-        if cursor == nil {
-            magnificationRampEnd = now + Self.enterRampDuration
-        }
-        cursor = point
-
-        let remaining = magnificationRampEnd - now
-        if remaining > Self.minimumRampStep {
-            relayout(animated: true, duration: remaining)
-        } else {
-            relayout(animated: false)
-        }
+    private var magnificationAvailable: Bool {
+        snapshot.appearance.magnificationEnabled
+            && snapshot.appearance.effectiveLargeSize > snapshot.appearance.tileSize
     }
 
-    private func releaseCursor() {
-        guard cursor != nil else { return }
-        cursor = nil
-        magnificationRampEnd = 0
-        relayout(animated: true, duration: Self.exitRampDuration)
+    private func startFrameLink() {
+        guard frameLink == nil, magnificationAvailable, window != nil else { return }
+        let link = displayLink(target: self, selector: #selector(stepFrame(_:)))
+        link.add(to: .main, forMode: .common)
+        lastTick = CACurrentMediaTime()
+        frameLink = link
+    }
+
+    private func stopFrameLink() {
+        frameLink?.invalidate()
+        frameLink = nil
+        settledTicks = 0
+    }
+
+    @objc private func stepFrame(_ link: CADisplayLink) {
+        let now = CACurrentMediaTime()
+        let delta = (now - lastTick).clamped(to: 0...Self.maximumFrameDelta)
+        lastTick = now
+
+        if magnificationAvailable, let point = pointerLocation(), interactiveRect.contains(point) {
+            cursor = point
+            magnificationTarget = 1
+        } else {
+            magnificationTarget = 0
+        }
+
+        let constant = magnificationTarget > magnification
+            ? Self.enterRampDuration / Self.rampSettleFactor
+            : Self.exitRampDuration / Self.rampSettleFactor
+        magnification += (magnificationTarget - magnification) * (1 - exp(-delta / constant))
+        if abs(magnificationTarget - magnification) < Self.rampEpsilon {
+            magnification = magnificationTarget
+        }
+
+        if magnification == 0, magnificationTarget == 0 {
+            cursor = nil
+            stopFrameLink()
+        }
+
+        guard cursor != appliedCursor || magnification != appliedMagnification else {
+            settledTicks += 1
+            if settledTicks >= Self.settleTicks {
+                stopFrameLink()
+            }
+            return
+        }
+
+        settledTicks = 0
+        relayout()
+    }
+
+    private func pointerLocation() -> CGPoint? {
+        guard let window else { return nil }
+        return convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
     }
 
     public static let enterRampDuration: CFTimeInterval = 0.20
     public static let exitRampDuration: CFTimeInterval = 0.16
-    private static let minimumRampStep: CFTimeInterval = 0.01
+    private static let rampSettleFactor: CFTimeInterval = 3
+    private static let rampEpsilon: CGFloat = 0.002
+    private static let maximumFrameDelta: CFTimeInterval = 0.1
+    private static let settleTicks = 12
 
     private func tile(at point: CGPoint) -> DockTile? {
         guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),

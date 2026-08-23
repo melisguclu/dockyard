@@ -1,4 +1,5 @@
 import CoreGraphics
+import DockCore
 import Foundation
 
 public enum MagnificationCurve {
@@ -9,8 +10,9 @@ public enum MagnificationCurve {
         return 1 + (maximumScale - 1) * falloff
     }
 
-    public static func maximumScale(tileSize: CGFloat, largeSize: CGFloat) -> CGFloat {
+    public static func maximumScale(tileSize: CGFloat, largeSize: CGFloat, amount: CGFloat = 1) -> CGFloat {
         guard tileSize > 0 else { return 1 }
-        return max(largeSize / tileSize, 1)
+        let full = max(largeSize / tileSize, 1)
+        return 1 + (full - 1) * amount.clamped(to: 0...1)
     }
 }

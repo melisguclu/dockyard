@@ -76,7 +76,7 @@ Controllers are **pooled** for two minutes after a display disappears. Closing a
 - The blur is an `NSVisualEffectView` sized to the bar rect with a corner radius. Tiles live in a sibling view **above** it, because a manually added sublayer of the content view's own layer is drawn below subview layers.
 - One `DockTileLayer` per tile, holding an icon layer, an indicator layer, a separator layer, and a drop-target highlight. Icons are rasterized once to a `CGImage` at `largesize × maximum backing scale` and assigned as layer contents, so magnification is a GPU transform with no CPU cost per frame.
 - All hot-path layer mutation happens inside `CATransaction` with actions disabled. Without that, every position assignment schedules an implicit quarter-second animation.
-- Magnification is driven by `mouseMoved:` from an `.activeAlways` tracking area over the bar. A stationary cursor produces no events and therefore no work, which is strictly better than a display link that would run at 120 Hz regardless.
+- Magnification is driven by a `CADisplayLink`. `mouseMoved:` from an `.activeAlways` tracking area only starts it; each vsync then samples the pointer with `NSEvent.mouseLocation` and lays out once. Driving layout from the events themselves looks cheaper and measured worse: event delivery does not align with the refresh, so a vsync that receives none shows stale geometry and a vsync that receives two throws one away. That measured 46 fps with 23% of frames stale on a 60 Hz display, against a solid 60 for the link. A stationary cursor still produces no work, because the link skips a layout whose geometry matches the presented frame and invalidates itself once that has held for twelve frames.
 
 ## Geometry
 
@@ -85,3 +85,17 @@ Controllers are **pooled** for two minutes after a display disappears. Closing a
 Vertical placement is taken from the system rather than modelled: the display hosting the real Dock reserves a strip at its edge, visible as the difference between `frame` and `visibleFrame`, and Dockyard uses that measurement directly for its own bars. At `tilesize` 27 on macOS 26 that strip is 47 points; a ratio-based constant would have put the bar 7 points off. The ratios in `DockMetrics` are the fallback for when the Dock is auto-hidden or absent.
 
 `Scripts/calibrate.swift` prints the live values those ratios are checked against.
+
+`magnificationWindowTiles` is measured rather than assumed. Screenshots of the real Dock at ten
+known cursor positions give the centre of every icon; the distance between neighbouring centres
+is `tilesize × scale + spacing`, so one magnified frame samples the falloff at every icon on the
+bar at once. Fitting the raised cosine in `MagnificationCurve` to 128 such samples at `tilesize`
+27 and `largesize` 48 on macOS 26 puts the window at 3.9 tiles, with anything from 3.45 to 4.05
+within 5% of the best fit. The peak is confirmed at `largesize`: the fit prefers 49 against a
+real 48, inside the noise, and the spacing between icons does not scale with magnification.
+
+The 3.0 that value replaced was an assumption, and it was wrong in a way that showed. It matched
+the peak but decayed too fast, leaving tiles two to four positions from the cursor measurably
+smaller than the real Dock's — a systematic 4 to 6 point error across the whole mid-field rather
+than random scatter. Residuals against the fitted window are unbiased. `DockMetrics.sonoma` keeps
+3.0 because nothing has been measured on that release.

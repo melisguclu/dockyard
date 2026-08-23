@@ -59,7 +59,7 @@ public struct DockMetrics: Sendable, Equatable {
         indicatorInsetRatio: 0.0000,
         separatorLengthRatio: 0.2500,
         smallSpacerLengthRatio: 0.5000,
-        magnificationWindowTiles: 3.0,
+        magnificationWindowTiles: 3.9,
         borderWidth: 1.0
     )
 
