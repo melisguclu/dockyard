@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build and test
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Select Xcode
+        run: |
+          ls /Applications | grep -i '^Xcode'
+          sudo xcode-select -s /Applications/Xcode_16.4.app
+          swift --version
+
+      - name: Build DockCore
+        run: swift build --package-path Packages/DockCore
+
+      - name: Test DockCore
+        run: swift test --package-path Packages/DockCore
+
+      - name: Build DockKit
+        run: swift build --package-path Packages/DockKit
+
+      - name: Test DockKit
+        run: swift test --package-path Packages/DockKit
+
+      - name: Build the app target
+        run: swift build
+
+      - name: Assemble the app bundle
+        run: Scripts/make-app.sh debug
+
+      - name: Verify the bundle
+        run: |
+          test -x build/Dockyard.app/Contents/MacOS/Dockyard
+          plutil -lint build/Dockyard.app/Contents/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :LSUIElement' build/Dockyard.app/Contents/Info.plist | grep -qx true
+
+  forbidden-apis:
+    name: Forbidden APIs
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Run the forbidden-API lint
+        run: Scripts/lint-forbidden-apis.sh
+
+  entitlements:
+    name: Entitlements grant nothing
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Verify the entitlements file is empty
+        run: |
+          plutil -lint Dockyard/Dockyard.entitlements
+          KEYS="$(plutil -convert json -o - Dockyard/Dockyard.entitlements)"
+          echo "entitlements: $KEYS"
+          test "$KEYS" = "{}"
+
+  lint:
+    name: SwiftLint and swift-format
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+
+      - name: Install SwiftLint
+        run: |
+          if ! command -v swiftlint > /dev/null; then
+            brew install swiftlint
+          fi
+          swiftlint version
+
+      - name: SwiftLint
+        run: swiftlint lint --strict
+
+      - name: swift-format
+        run: |
+          if swift format --version > /dev/null 2>&1; then
+            swift format lint --strict --recursive Packages/DockCore/Sources Packages/DockKit/Sources Dockyard
+          else
+            echo "swift format is not available in this toolchain"
+            exit 1
+          fi
