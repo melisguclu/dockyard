@@ -12,6 +12,12 @@ let package = Package(
         .target(
             name: "DockCore",
             swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "DockCoreTests",
+            dependencies: ["DockCore"],
+            resources: [.copy("Fixtures")],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]
 )
