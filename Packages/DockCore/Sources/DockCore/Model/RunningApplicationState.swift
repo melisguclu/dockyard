@@ -30,6 +30,6 @@ public struct RunningApplicationState: Sendable, Equatable, Identifiable {
     }
 
     public var canonicalPath: String? {
-        bundleURL?.standardizedFileURL.resolvingSymlinksInPath().path
+        bundleURL?.standardizedFileURL.path
     }
 }
