@@ -4,7 +4,7 @@ Thanks for considering a contribution. This document covers the setup, the two h
 
 ## Setup
 
-Requirements: macOS 14 or later and Xcode 16 or later, which supplies Swift 6.
+Requirements: macOS 14 or later to run and Xcode 26 or later to build. The deployment target stays macOS 14, but `DockBackdrop` references `NSGlassEffectView`, which only exists in the macOS 26 SDK, so an older Xcode cannot compile it.
 
 ```bash
 swift build                            # app target plus both packages

@@ -96,7 +96,7 @@ See `Docs/ARCHITECTURE.md`.
 
 ## Build from source
 
-Requirements: macOS 14 or later, Xcode 16 or later (Swift 6).
+Requirements: macOS 14 or later to run, Xcode 26 or later to build. The glass backdrop compiles against the macOS 26 SDK, and `#available` guards it at runtime.
 
 ```bash
 swift build                                   # the app
