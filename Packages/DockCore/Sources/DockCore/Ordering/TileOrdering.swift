@@ -4,6 +4,7 @@ public enum TileOrdering {
     public static func tiles(
         preferences: ResolvedDockPreferences,
         running: [RunningApplicationState],
+        minimizedWindows: [MinimizedWindow] = [],
         trashIsEmpty: Bool
     ) -> [DockTile] {
         var builder = Builder(running: running)
@@ -27,6 +28,12 @@ public enum TileOrdering {
         }
 
         builder.appendSeparator()
+
+        if !preferences.appearance.minimizeToApplication {
+            for window in minimizedWindows {
+                builder.appendMinimizedWindow(window)
+            }
+        }
 
         for entry in preferences.others {
             builder.appendOther(entry)
@@ -111,6 +118,12 @@ public enum TileOrdering {
                     isPinned: false
                 )
             )
+        }
+
+        mutating func appendMinimizedWindow(_ window: MinimizedWindow) {
+            let identifier = DockTileID.window(window.token)
+            guard usedIdentifiers.insert(identifier).inserted else { return }
+            tiles.append(window.tile)
         }
 
         mutating func appendSeparator() {

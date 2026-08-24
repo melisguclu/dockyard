@@ -131,3 +131,32 @@ extension DockTile {
         return nil
     }
 }
+
+extension DockTile {
+    var isMinimizedWindow: Bool {
+        if case .minimizedWindow = kind { return true }
+        return false
+    }
+}
+
+enum TestWindows {
+    static func minimized(
+        token: UInt64,
+        pid: pid_t = 900,
+        index: Int = 0,
+        title: String = "Window",
+        application: String = "App",
+        bundleIdentifier: String? = "com.example.app",
+        path: String? = "/Applications/Safari.app"
+    ) -> MinimizedWindow {
+        MinimizedWindow(
+            token: token,
+            processIdentifier: pid,
+            index: index,
+            title: title,
+            applicationName: application,
+            bundleIdentifier: bundleIdentifier,
+            applicationURL: path.map { URL(fileURLWithPath: $0) }
+        )
+    }
+}

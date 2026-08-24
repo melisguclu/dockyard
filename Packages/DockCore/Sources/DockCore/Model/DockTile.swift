@@ -10,6 +10,7 @@ public enum DockTileID: Hashable, Sendable {
     case bundle(String)
     case path(String)
     case builtin(DockTileBuiltin)
+    case window(UInt64)
 }
 
 public enum FolderStackDisplay: Int, Sendable, Equatable, Codable {
@@ -56,6 +57,7 @@ public struct DockTile: Sendable, Equatable, Identifiable {
         case folder(FolderPresentation)
         case url
         case trash(isEmpty: Bool)
+        case minimizedWindow
         case separator
         case spacer(width: SpacerWidth)
     }
@@ -84,7 +86,7 @@ public struct DockTile: Sendable, Equatable, Identifiable {
 
     public var isInteractive: Bool {
         switch kind {
-        case .application, .folder, .url, .trash:
+        case .application, .folder, .url, .trash, .minimizedWindow:
             return true
         case .separator, .spacer:
             return false

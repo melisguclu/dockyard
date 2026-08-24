@@ -15,6 +15,7 @@ public struct IconRequest: Sendable, Hashable {
         case webLocation
         case trash(isEmpty: Bool)
         case calendar(weekday: String, day: String)
+        case minimizedWindow
     }
 
     public init(cacheKey: String, url: URL?, flavour: Flavour, pixelSize: Int) {
@@ -67,6 +68,13 @@ public actor IconProvider {
 
     private static func rasterize(_ request: IconRequest) -> CGImage? {
         guard let source = sourceImage(for: request) else { return nil }
+        if case .minimizedWindow = request.flavour {
+            let badgeSize = MinimizedWindowTileRenderer.badgePixelSize(for: request.pixelSize)
+            return MinimizedWindowTileRenderer.card(
+                badge: draw(source, pixelSize: badgeSize),
+                pixelSize: request.pixelSize
+            )
+        }
         guard let base = draw(source, pixelSize: request.pixelSize) else { return nil }
         guard case .calendar(let weekday, let day) = request.flavour else { return base }
         return CalendarTileRenderer.overlay(weekday: weekday, day: day, on: base) ?? base
@@ -78,7 +86,7 @@ public actor IconProvider {
             return trashImage(isEmpty: isEmpty) ?? genericIcon()
         case .webLocation:
             return NSWorkspace.shared.icon(for: .internetLocation)
-        case .application, .folder, .calendar:
+        case .application, .folder, .calendar, .minimizedWindow:
             guard let url = request.url, FileManager.default.fileExists(atPath: url.path) else {
                 return genericIcon()
             }
@@ -166,6 +174,8 @@ extension IconRequest {
             flavour = .webLocation
         case .trash(let isEmpty):
             flavour = .trash(isEmpty: isEmpty)
+        case .minimizedWindow:
+            flavour = .minimizedWindow
         case .separator, .spacer:
             flavour = .application
         }

@@ -12,6 +12,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     private let contentView: DockContentView
     private let iconProvider: IconProvider
     private let appMenuStore: AppMenuStore?
+    private let minimizedWindowStore: MinimizedWindowStore?
     private let activator = ApplicationActivator()
 
     private var screenFrame: CGRect = .zero
@@ -24,12 +25,14 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         displayID: CGDirectDisplayID,
         iconProvider: IconProvider,
         appMenuStore: AppMenuStore? = nil,
+        minimizedWindowStore: MinimizedWindowStore? = nil,
         metrics: DockMetrics = .current
     ) {
         self.identity = identity
         self.displayID = displayID
         self.iconProvider = iconProvider
         self.appMenuStore = appMenuStore
+        self.minimizedWindowStore = minimizedWindowStore
         panel = DockPanel.make()
         contentView = DockContentView(frame: .zero)
         contentView.metrics = metrics
@@ -111,6 +114,8 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
             activator.open(url)
         case .trash:
             activator.openTrash()
+        case .minimizedWindow:
+            minimizedWindowStore?.restore(tile.id)
         case .separator, .spacer:
             break
         }
@@ -135,7 +140,11 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     ) {
         switch command {
         case .activate:
-            activator.activateOrLaunch(tile)
+            if case .minimizedWindow = tile.kind {
+                minimizedWindowStore?.restore(tile.id)
+            } else {
+                activator.activateOrLaunch(tile)
+            }
         case .showInFinder:
             guard let url = tile.url else { return }
             activator.reveal(url)

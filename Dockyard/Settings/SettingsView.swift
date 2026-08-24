@@ -33,7 +33,7 @@ struct SettingsView: View {
             Section {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("App commands and window lists")
+                        Text("App commands and minimized windows")
                         Text(appMenuStatus)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -49,7 +49,8 @@ struct SettingsView: View {
                 Text(
                     """
                     Accessibility access lets a tile's menu list the app's own \
-                    windows and commands, such as New Window or Next Track.
+                    windows and commands, such as New Window or Next Track, and \
+                    gives every minimized window a tile before the Trash.
                     """
                 )
                 .font(.footnote)
@@ -61,8 +62,8 @@ struct SettingsView: View {
 
     private var appMenuStatus: String {
         preferences.appMenusAuthorized
-            ? "Enabled. Right-click a running app to see its windows and commands."
-            : "Off. Tile menus show only Dockyard's own commands."
+            ? "Enabled. Minimized windows have tiles, and a right-click lists an app's own commands."
+            : "Off. No minimized windows, and tile menus show only Dockyard's own commands."
     }
 
     private var displays: some View {

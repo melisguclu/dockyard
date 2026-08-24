@@ -29,14 +29,14 @@ Screen Recording is never requested.
 
 ## Accessibility, the one optional permission
 
-Tile menus can list a running app's windows, its own commands — *New Window*, *Next Track* — and its recent documents. That needs the Accessibility API, so it is the only TCC permission Dockyard can hold, and the terms are deliberately narrow:
+Two features need the Accessibility API, so it is the only TCC permission Dockyard can hold: tile menus that list a running app's windows, its own commands — *New Window*, *Next Track* — and its recent documents, and the minimized-window tiles between the separator and the Trash. The terms are deliberately narrow:
 
-- **Off by default and never prompted for.** The grant is requested only from a button in Settings that says what it is for. `AXIsProcessTrusted()` is checked before every read, and with no grant the tile menu is byte-for-byte what it was before the feature existed.
+- **Off by default and never prompted for.** The grant is requested only from a button in Settings that says what it is for. `AXIsProcessTrusted()` is checked before every read, and with no grant the tile menu is byte-for-byte what it was before the feature existed and the minimized-window region is absent.
 - **Read-only, except for what the user clicks.** The app reads the target's window titles, its menu-bar item titles, their identifiers, shortcuts, and enabled state, and the entries in the submenus of its File menu — which is where recent documents live, so recently opened file *names* are read. It writes nothing and presses nothing until the user picks a row, at which point exactly one `AXPress`, `AXRaise`, or `AXMinimized` clear is sent to the element that row named.
-- **No keystroke or event synthesis.** No `CGEvent` posting, no `AXObserver` on keyboard or focus, no reading of text fields, documents, or web content. The menu bar and the window list are the whole surface.
-- **Nothing is persisted.** Window titles and command titles live in memory for as long as the app is running and are dropped when it exits. They are never written to disk, and there is no network code to send them anywhere.
+- **No keystroke or event synthesis.** No `CGEvent` posting, no reading of text fields, documents, or web content. The menu bar and the window list are the whole surface. The one `AXObserver` the app registers is per application and carries three window notifications — miniaturized, deminiaturized, created — with nothing on keyboard or focus.
+- **Nothing is persisted.** Window titles and command titles live in memory for as long as the app is running and are dropped when it exits. A minimized window's title is on screen the whole time it is minimized, which is the same exposure the real Dock's tooltip already gives it. They are never written to disk, and there is no network code to send them anywhere.
 
-An Accessibility grant is genuinely powerful — it would let this process drive any app on the system — so the honest statement is that the user is trusting the binary, not a sandbox. The compensating controls are that the grant is optional, the feature is worth exactly one menu, and the code that uses it is six files under `Packages/DockCore/Sources/DockCore/AppMenu/`.
+An Accessibility grant is genuinely powerful — it would let this process drive any app on the system — so the honest statement is that the user is trusting the binary, not a sandbox. The compensating controls are that the grant is optional, the features are worth exactly one menu and one row of tiles, and the code that uses it is confined to `Packages/DockCore/Sources/DockCore/AppMenu/` and `Packages/DockCore/Sources/DockCore/Windows/`.
 
 ## Why not sandboxed
 

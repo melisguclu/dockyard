@@ -11,6 +11,7 @@ public final class DockStateStore {
 
     public let iconProvider: IconProvider
     public let appMenuStore: AppMenuStore
+    public let minimizedWindowStore: MinimizedWindowStore
 
     private let subject: CurrentValueSubject<DockSnapshot, Never>
     private let reader: DockPreferencesReader
@@ -35,6 +36,7 @@ public final class DockStateStore {
         self.runningObserver = runningObserver
         self.preferencesWatcher = preferencesWatcher
         appMenuStore = AppMenuStore()
+        minimizedWindowStore = MinimizedWindowStore()
         subject = CurrentValueSubject(.empty)
     }
 
@@ -43,9 +45,15 @@ public final class DockStateStore {
     }
 
     public func start() {
+        minimizedWindowStore.onChange = { [weak self] in
+            self?.rebuild()
+        }
+        minimizedWindowStore.start()
         runningObserver.start(
             onChange: { [weak self] in
-                self?.rebuild()
+                guard let self else { return }
+                self.minimizedWindowStore.update(with: self.runningObserver.applications)
+                self.rebuild()
             },
             onLaunch: { [weak self] path in
                 guard let self else { return }
@@ -56,6 +64,7 @@ public final class DockStateStore {
         preferencesWatcher.start { [weak self] in
             self?.reloadPreferences()
         }
+        minimizedWindowStore.update(with: runningObserver.applications)
         reloadPreferences()
     }
 
@@ -63,6 +72,7 @@ public final class DockStateStore {
         resolveTask?.cancel()
         resolveTask = nil
         preferencesWatcher.stop()
+        minimizedWindowStore.stop()
     }
 
     public func reloadPreferences() {
@@ -91,6 +101,7 @@ public final class DockStateStore {
 
     public func refreshRunningApplications() {
         runningObserver.refresh()
+        minimizedWindowStore.update(with: runningObserver.applications)
         rebuild()
     }
 
@@ -103,6 +114,7 @@ public final class DockStateStore {
         let tiles = TileOrdering.tiles(
             preferences: resolved,
             running: runningObserver.applications,
+            minimizedWindows: minimizedWindowStore.windows,
             trashIsEmpty: environment.trashIsEmpty()
         )
 

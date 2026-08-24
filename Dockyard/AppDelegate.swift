@@ -11,7 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let displayObserver = DisplayConfigurationObserver()
     private lazy var coordinator = DisplayCoordinator(
         iconProvider: store.iconProvider,
-        appMenuStore: store.appMenuStore
+        appMenuStore: store.appMenuStore,
+        minimizedWindowStore: store.minimizedWindowStore
     )
 
     private var accessibilityObserver: NSObjectProtocol?

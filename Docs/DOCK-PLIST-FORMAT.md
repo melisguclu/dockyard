@@ -108,10 +108,13 @@ The order the Dock renders, which `TileOrdering` reproduces:
 2. Running applications with `activationPolicy == .regular` that are not pinned, in launch order.
 3. `recent-apps` when `show-recents` is true, excluding anything already shown.
 4. A separator, if there is anything after it.
-5. `persistent-others` in array order.
-6. The Trash.
+5. One tile per minimized window when `minimize-to-application` is false, in the order the windows were minimized.
+6. `persistent-others` in array order.
+7. The Trash.
 
 Matching a running application to a pinned entry is done on bundle identifier first and on canonicalized bundle path second, because some applications report no bundle identifier.
+
+Minimized windows do not come from this domain at all; they are read from each application over the Accessibility API, which is why step 5 is present only when that grant is held. Their placement was confirmed against the Dock's own accessibility tree, where `AXMinimizedWindowDockItem` sits between `AXSeparatorDockItem` and `AXTrashDockItem`. Whether they precede or follow `persistent-others` was not confirmable on a machine whose `persistent-others` is empty; Dockyard places them first, which keeps a pinned stack adjacent to the Trash.
 
 ## Change notification
 

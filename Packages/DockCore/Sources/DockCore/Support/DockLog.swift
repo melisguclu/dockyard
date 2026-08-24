@@ -12,6 +12,7 @@ public enum DockLog {
     public static let rendering = Logger(subsystem: subsystem, category: "rendering")
     public static let app = Logger(subsystem: subsystem, category: "app")
     public static let appMenus = Logger(subsystem: subsystem, category: "app-menus")
+    public static let windows = Logger(subsystem: subsystem, category: "windows")
 
     public static let signposts = OSSignposter(subsystem: subsystem, category: "performance")
 }

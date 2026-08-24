@@ -48,6 +48,8 @@ public enum DockTileMenuBuilder {
             ]
         case .url, .trash:
             return [.command(.open, title: "Open")]
+        case .minimizedWindow:
+            return [.command(.activate, title: "Show")]
         case .separator, .spacer:
             return []
         }

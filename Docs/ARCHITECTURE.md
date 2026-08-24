@@ -133,7 +133,7 @@ The cache is filled from the same `NSWorkspace` notifications that already drive
 
 "Becomes frontmost" is load-bearing, and getting it wrong is what a test now guards. `DockStateStore.rebuild()` runs on every workspace notification and on every write to the watched preferences directory — far more often than the rendered output changes, which is why it diffs before publishing. The first version of this cache refreshed the active app on every one of those calls, and the unified log showed the frontmost app being re-read every ten seconds while the machine sat idle: an accidental poll, in an app whose observation path has none. The store now compares the active pid against the previous one and does nothing when it matches, so twenty identical rebuilds cost zero Accessibility calls.
 
-The price of having no timer is that window titles are only as fresh as the last activation: switch tabs in an already-frontmost Chrome and its tile menu still lists the previous title. The event-driven fix is an `AXObserver` per app on `kAXTitleChangedNotification` and `kAXWindowCreatedNotification`, which is the right shape for this codebase and is not built yet.
+The price of having no timer is that window titles are only as fresh as the last activation: switch tabs in an already-frontmost Chrome and its tile menu still lists the previous title. The event-driven fix is an `AXObserver` per app on `kAXTitleChangedNotification`; the observer itself now exists for minimized windows, and this cache is not wired to it yet.
 
 A snapshot is stored even when the walk yields nothing, so a silent app is not re-walked on every rebuild. An empty snapshot is retried in full the next time that app comes forward, which keeps one slow first contact from poisoning the tile for the rest of the session.
 
@@ -176,6 +176,33 @@ Window rows raise their window through `AXRaise` after clearing `AXMinimized`, a
 Adding these sections took the menu from at most seven rows to a possible thirty-one — six commands, eight recent documents, twelve windows, and five of Dockyard's own — and `DockMenuLayout` clamps the balloon's *origin* to the screen but never its *size*, so an overlong menu would run off the top with its lower rows unreachable. Measured against `DockMenuMetrics.current`, the worst case is 821 pt against 834 pt of usable height on a 1440×900 built-in display: it fits by 13 pt, which is not a margin, it is a coincidence. A 1280×800 scaled mode overflows.
 
 `DockTileMenuBuilder` therefore takes the available height and trims to it. Sections carry a trim priority and the builder drops one row at a time from the highest-priority section that still has any: recent documents first, then the window list, then the app's own commands. Dockyard's own rows have no priority and are never trimmed, so the menu degrades to *Show / Hide / Show in Finder / Quit / Force Quit* rather than to something unusable. The height is computed from the same metrics the content view lays out with, and the tail is always counted even for the side orientations that put it on the width, which errs 10.6 pt toward safety.
+
+## Minimized windows
+
+When `minimize-to-application` is off, which is the default, the system Dock gives every minimized window its own tile between the separator and the Trash. Reading the Dock's own list confirms the arrangement — `AXApplicationDockItem` … `AXSeparatorDockItem`, then one `AXMinimizedWindowDockItem` per window, then `AXTrashDockItem` — and the same set is reachable directly from each application: `kAXWindowsAttribute` on the app element, filtered on `kAXMinimized`. Dockyard reads it from the applications, not from the Dock, so the region is rendered whether or not the real Dock is on the display and without depending on the Dock's accessibility tree.
+
+That makes minimized windows the second thing the optional Accessibility grant buys, alongside the tile menus. Without the grant the region is simply absent, exactly as it was before, and `MinimizedWindowStore` checks `AXIsProcessTrusted()` before every read.
+
+### Observation, and why there is still no timer
+
+Minimizing a window produces no `NSWorkspace` notification, so this is the first state in the app that the workspace centre cannot report. `MinimizedWindowObserver` registers one `AXObserver` per running application on `kAXWindowMiniaturized`, `kAXWindowDeminiaturized`, and `kAXWindowCreated`, and adds its run loop source to the main run loop under `commonModes` so the notifications keep arriving while a tile menu is tracking. The observer set is rebuilt from the same running-applications list that already drives everything else, so an app that launches is registered and an app that exits is torn down without any separate bookkeeping.
+
+The callback is a C function pointer and therefore captures nothing: it recovers the pid from the element with `AXUIElementGetPid`, and the store is reached through an unretained context pointer that is turned back into a reference inside `MainActor.assumeIsolated`. A notification only ever schedules a re-read of the one application it came from, through the same actor-isolated inspector the tile menus use, and one in-flight read per pid is coalesced with a pending flag so a burst of notifications collapses into two reads rather than ten.
+
+Measured on an M1 MacBook Pro with 20 applications running and 8 minimized windows, the observers cost 20 ms of CPU over 45 idle seconds and the round trip from ⌘M to a rendered tile is under a second. Resident memory is unchanged at 37 MB: every window of an application shares one rasterized tile, because the tile is keyed on the application, not on the window.
+
+### Why the tile is a drawn card and not a thumbnail
+
+The real Dock draws the window's own miniaturized image, and the blocker is a permission rather than a technique. `CGWindowListCreateImage` was obsoleted in macOS 15 and is gone from the SDK, which leaves ScreenCaptureKit, and ScreenCaptureKit does capture a minimized window: `SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)` lists it with `isOnScreen == false`, and `SCScreenshotManager.captureImage` on a `desktopIndependentWindow` filter returns its real contents at full size — measured against minimized Terminal, Activity Monitor, and Claude windows, all three legible. Every one of those calls is behind Screen Recording, which is the permission this app will not ask for, and the capture would have to happen on the miniaturize notification since the contents stop changing there. That is a product decision rather than a limit, and the decision is that the tile does not pretend to be a thumbnail. `MinimizedWindowTileRenderer` draws a window: a rounded card with a title bar and its three lights, with the application's icon badged over the bottom-right corner the way the Dock badges the real thing. It reads as *a window belonging to this app* at a glance, which is what the tile is for, and it never reads as a screenshot that failed to load.
+
+The consequence is that two windows of the same application are told apart by their menu and their position, not by their contents.
+
+### What the order can and cannot reproduce
+
+The Dock orders this region by when each window was minimized. Dockyard assigns a token to a window the first time it sees it minimized and sorts on that, so every window minimized while Dockyard is running lands in the right place. The windows that were already minimized when Dockyard launched are seeded in enumeration order instead — by process, then by the app's own window order — because nothing in the Accessibility API reports when a window was minimized, and the Dock's own list cannot be used to seed it either: the Dock renders a window's title as the app publishes it to the window server, and Chrome's differ from the titles the same windows report over Accessibility, so matching them by title fails on exactly the apps that need it most.
+
+A window destroyed while it is minimized is also not observable — `kAXUIElementDestroyed` would have to be registered per window — so its tile survives until that application next changes state. Clicking it does nothing rather than raising the wrong window, because the raise is matched on index *and* title.
+
 
 ## Geometry
 

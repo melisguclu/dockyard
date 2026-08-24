@@ -33,9 +33,10 @@ Dockyard is a menu bar agent with no Dock icon of its own. Its status item offer
 - Running indicators, hidden-app dimming, and the Trash tile with its empty and full states
 - Click to launch or activate, right-click for Show in Finder / Hide / Quit / Force Quit
 - Right-click a running app for its own windows, commands, and recent documents — New Window, New Incognito Window, Next Track, Xcode's recent projects — read from the app's menu bar (optional, needs Accessibility)
+- A tile for every minimized window, between the separator and the Trash, like the real Dock; click one to bring that window back (optional, needs Accessibility)
 - Drag files onto an app tile to open them with that app
 - Dock magnification, using the system's own `tilesize` and `largesize`
-- Reads `tilesize`, `largesize`, `magnification`, `orientation`, `show-process-indicators`, and `show-recents` from the system, so it changes when the Dock changes
+- Reads `tilesize`, `largesize`, `magnification`, `orientation`, `show-process-indicators`, `show-recents`, and `minimize-to-application` from the system, so it changes when the Dock changes
 - Suppresses its own bar on the display currently hosting the real Dock (configurable)
 - Per-display enable and disable, remembered across disconnects by display hardware identity, not by the volatile `CGDirectDisplayID`
 - Handles display connect, disconnect, resolution change, rearrangement, sleep, and wake
@@ -43,7 +44,7 @@ Dockyard is a menu bar agent with no Dock icon of its own. Its status item offer
 
 ## Performance
 
-Dockyard is event-driven. There is no polling anywhere in the observation path: preference changes arrive through a distributed notification with a filesystem watcher as a backstop, application state through `NSWorkspace` notifications, and display changes through `CGDisplayRegisterReconfigurationCallback`. Snapshots are diffed before they are published and again before they are rendered, so the frequent notifications that do not change the rendered output cost nothing.
+Dockyard is event-driven. There is no polling anywhere in the observation path: preference changes arrive through a distributed notification with a filesystem watcher as a backstop, application state through `NSWorkspace` notifications, minimize and restore through one `AXObserver` per application, and display changes through `CGDisplayRegisterReconfigurationCallback`. Snapshots are diffed before they are published and again before they are rendered, so the frequent notifications that do not change the rendered output cost nothing.
 
 Measured on an M1 MacBook Pro with a Studio Display, macOS 26.5, 20 tiles, `tilesize` 27:
 
@@ -59,7 +60,7 @@ Reproduce with `Scripts/benchmark.sh` while Dockyard is running. Idle-wakeup and
 ## Privacy and security
 
 - **No network code.** No `URLSession`, no sockets, no telemetry, no crash reporting, no update ping. CI greps for the whole class of APIs and fails the build on any hit.
-- **No permission prompts** in the default configuration. No Screen Recording, no Full Disk Access, no helper tool, no root. Accessibility is the one permission Dockyard can hold, it is off until you grant it from Settings, and it buys exactly one thing: a tile's menu listing the app's windows and its own commands. See `Docs/SECURITY-MODEL.md`.
+- **No permission prompts** in the default configuration. No Screen Recording, no Full Disk Access, no helper tool, no root. Accessibility is the one permission Dockyard can hold, it is off until you grant it from Settings, and it buys exactly two things: a tile's menu listing the app's windows and its own commands, and the minimized-window tiles. See `Docs/SECURITY-MODEL.md`.
 - **No subprocesses and no AppleScript.** Dockyard never spawns a process, never calls `killall`, and never sends an Apple Event.
 - **Never writes to `com.apple.dock`** and never restarts the Dock. The only state it persists is its own preferences.
 - **Hardened Runtime** with an entitlements file that grants nothing. Verify a build yourself:
@@ -80,7 +81,8 @@ These are real and are not going away:
 - **Dockyard renders a copy, not an extension.** No public or private API extends the real Dock to a second display. Fidelity work closes the gap; it does not eliminate it.
 - **It cannot be sandboxed,** because reading another application's preference domain and resolving icons at arbitrary paths are both sandbox-blocked. It is therefore not on the Mac App Store.
 - **Minimize animations do not fly into Dockyard's bars.** The genie effect targets the system Dock's own window.
-- **Minimized windows are not listed.** The real Dock gives each minimized window its own tile when `minimize-to-application` is off. Those come from the window server and need Accessibility to enumerate, which is deliberately not requested.
+- **Minimized window tiles are drawn, not captured.** The real Dock shows the window's own miniaturized image. Every route to a window's pixels is behind Screen Recording, so Dockyard draws a window card badged with the app's icon instead. Two windows of one app are told apart by their menu and their position, not by their contents.
+- **Minimized windows that were already minimized at launch are not in minimize order.** Nothing reports when a window was minimized, so only the ones minimized while Dockyard is running land in the same order as the real Dock's.
 - **Clock does not tick.** The Dock draws Calendar and Clock through each app's dock tile plugin, loaded inside the Dock process. Dockyard will not load third-party code, so it draws Calendar's date itself and leaves Clock as its static bundle icon; a live second hand would need a timer, which the project bans.
 - **The Trash tile updates on app activation, not instantly.** `~/.Trash` needs Full Disk Access to watch, which Dockyard does not request. Its entry count is readable without any permission, so the state is recomputed whenever the snapshot rebuilds, which in practice means as soon as Finder comes forward.
 - **Clicking a running app brings its existing windows forward wherever they already are,** which may be a different display from the bar you clicked. This is exactly what the real Dock does; moving windows between displays is a window-manager feature and an explicit non-goal.
@@ -102,8 +104,8 @@ Requirements: macOS 14 or later to run, Xcode 26 or later to build. The glass ba
 ```bash
 swift build                                   # the app
 Scripts/make-app.sh debug                     # assemble build/Dockyard.app
-(cd Packages/DockCore && swift test)          # 47 tests
-(cd Packages/DockKit  && swift test)          # 30 tests
+(cd Packages/DockCore && swift test)          # 76 tests
+(cd Packages/DockKit  && swift test)          # 54 tests
 Scripts/lint-forbidden-apis.sh                # the CI-enforced bans
 Scripts/calibrate.swift                       # measure the real Dock's geometry
 ```
