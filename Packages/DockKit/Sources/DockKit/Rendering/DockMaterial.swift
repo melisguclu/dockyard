@@ -16,6 +16,8 @@ public enum DockMaterial {
 
     public static let borderColor: CGColor = NSColor.white.withAlphaComponent(0.12).cgColor
 
+    public static let glassBorderColor: CGColor = NSColor.white.withAlphaComponent(0.22).cgColor
+
     public static func shadow(on layer: CALayer, radius: CGFloat) {
         layer.shadowColor = NSColor.black.cgColor
         layer.shadowOpacity = 0.28

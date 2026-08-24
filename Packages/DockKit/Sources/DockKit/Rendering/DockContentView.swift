@@ -20,9 +20,7 @@ public final class DockContentView: NSView {
     public private(set) var snapshot: DockSnapshot = .empty
     public private(set) var currentLayout: DockLayout = .empty
 
-    private let background = NSVisualEffectView()
-    private let barMask = CALayer()
-    private let barBorder = CALayer()
+    private let backdrop = DockBackdrop()
     private let tileContainer = DockTileContainerView()
     private let tileHost = CALayer()
     private var tileLayers: [DockTileID: DockTileLayer] = [:]
@@ -58,25 +56,17 @@ public final class DockContentView: NSView {
         layerContentsRedrawPolicy = .onSetNeedsDisplay
         layer?.backgroundColor = NSColor.clear.cgColor
 
-        DockMaterial.configure(background)
-        background.autoresizingMask = []
-        addSubview(background)
-
-        barMask.backgroundColor = NSColor.black.cgColor
-        background.layer?.mask = barMask
+        addSubview(backdrop.view)
 
         tileContainer.wantsLayer = true
         tileContainer.layerContentsRedrawPolicy = .never
         tileContainer.autoresizingMask = []
-        addSubview(tileContainer, positioned: .above, relativeTo: background)
-
-        barBorder.borderWidth = metrics.borderWidth
-        barBorder.borderColor = DockMaterial.borderColor
-        barBorder.backgroundColor = NSColor.clear.cgColor
+        addSubview(tileContainer, positioned: .above, relativeTo: backdrop.view)
 
         tileHost.masksToBounds = false
         tileContainer.layer?.masksToBounds = false
-        tileContainer.layer?.addSublayer(barBorder)
+        backdrop.borderLayer.borderWidth = metrics.borderWidth
+        tileContainer.layer?.addSublayer(backdrop.borderLayer)
         tileContainer.layer?.addSublayer(tileHost)
 
         registerForDraggedTypes([.fileURL])
@@ -154,14 +144,11 @@ public final class DockContentView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
-        background.frame = bounds
-        if background.layer?.mask !== barMask {
-            background.layer?.mask = barMask
-        }
-        barMask.frame = currentLayout.barRect
-        barMask.cornerRadius = currentLayout.cornerRadius
-        barBorder.frame = currentLayout.barRect
-        barBorder.cornerRadius = currentLayout.cornerRadius
+        backdrop.apply(
+            bounds: bounds,
+            barRect: currentLayout.barRect,
+            cornerRadius: currentLayout.cornerRadius
+        )
 
         tileContainer.frame = bounds
         tileHost.frame = bounds
