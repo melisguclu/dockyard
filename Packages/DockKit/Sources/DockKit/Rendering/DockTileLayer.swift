@@ -12,6 +12,8 @@ public final class DockTileLayer {
     private let indicatorLayer = CALayer()
     private let separatorLayer = CALayer()
     private let highlightLayer = CALayer()
+    private let pressLayer = CALayer()
+    private let pressMask = CALayer()
 
     private var kind: DockTile.Kind
     private var isRunning = false
@@ -34,6 +36,12 @@ public final class DockTileLayer {
         iconLayer.minificationFilter = .trilinear
         iconLayer.magnificationFilter = .trilinear
         container.addSublayer(iconLayer)
+
+        pressMask.contentsGravity = .resizeAspect
+        pressLayer.backgroundColor = NSColor.black.withAlphaComponent(Self.pressDimAlpha).cgColor
+        pressLayer.opacity = 0
+        pressLayer.mask = pressMask
+        container.addSublayer(pressLayer)
 
         indicatorLayer.contentsGravity = .resizeAspect
         indicatorLayer.opacity = 0
@@ -68,6 +76,8 @@ public final class DockTileLayer {
     public func setIcon(_ image: CGImage?, scale: CGFloat) {
         iconLayer.contents = image
         iconLayer.contentsScale = max(scale, 1)
+        pressMask.contents = image
+        pressMask.contentsScale = max(scale, 1)
     }
 
     public func setIndicator(_ image: CGImage?) {
@@ -76,6 +86,13 @@ public final class DockTileLayer {
 
     public func setHighlighted(_ highlighted: Bool) {
         highlightLayer.opacity = highlighted ? 1 : 0
+    }
+
+    public func setPressed(_ pressed: Bool) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        pressLayer.opacity = pressed ? 1 : 0
+        CATransaction.commit()
     }
 
     public func apply(
@@ -88,6 +105,8 @@ public final class DockTileLayer {
         let bounds = CGRect(origin: .zero, size: frame.size)
 
         iconLayer.frame = bounds
+        pressLayer.frame = bounds
+        pressMask.frame = bounds
         highlightLayer.frame = bounds.insetBy(dx: -2, dy: -2)
         highlightLayer.cornerRadius = min(bounds.width, bounds.height) * 0.2
 
@@ -127,4 +146,6 @@ public final class DockTileLayer {
         }
         indicatorLayer.frame = indicatorFrame
     }
+
+    private static let pressDimAlpha: CGFloat = 0.525
 }

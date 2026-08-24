@@ -26,6 +26,7 @@ public final class DockContentView: NSView {
     private var tileLayers: [DockTileID: DockTileLayer] = [:]
     private var cursor: CGPoint?
     private var pressedIdentifier: DockTileID?
+    private var dimmedIdentifier: DockTileID?
     private var dropTargetIdentifier: DockTileID?
     private var trackingRegion: NSTrackingArea?
     private var frameLink: CADisplayLink?
@@ -234,14 +235,36 @@ public final class DockContentView: NSView {
     }
 
     override public func mouseDown(with event: NSEvent) {
-        pressedIdentifier = tile(at: location(of: event))?.id
+        let tile = tile(at: location(of: event))
+        pressedIdentifier = tile?.isInteractive == true ? tile?.id : nil
+        setPressed(pressedIdentifier)
+    }
+
+    override public func mouseDragged(with event: NSEvent) {
+        guard let pressedIdentifier else { return }
+        let stillInside = tile(at: location(of: event))?.id == pressedIdentifier
+        setPressed(stillInside ? pressedIdentifier : nil)
     }
 
     override public func mouseUp(with event: NSEvent) {
-        defer { pressedIdentifier = nil }
+        defer {
+            pressedIdentifier = nil
+            setPressed(nil)
+        }
         guard let tile = tile(at: location(of: event)), tile.id == pressedIdentifier else { return }
         guard tile.isInteractive else { return }
         delegate?.dockContentView(self, didActivate: tile)
+    }
+
+    private func setPressed(_ identifier: DockTileID?) {
+        guard dimmedIdentifier != identifier else { return }
+        if let previous = dimmedIdentifier {
+            tileLayers[previous]?.setPressed(false)
+        }
+        dimmedIdentifier = identifier
+        if let identifier {
+            tileLayers[identifier]?.setPressed(true)
+        }
     }
 
     override public func rightMouseDown(with event: NSEvent) {
