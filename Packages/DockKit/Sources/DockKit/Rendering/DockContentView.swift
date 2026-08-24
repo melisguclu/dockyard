@@ -6,7 +6,8 @@ import QuartzCore
 @MainActor
 public protocol DockContentViewDelegate: AnyObject {
     func dockContentView(_ view: DockContentView, didActivate tile: DockTile)
-    func dockContentView(_ view: DockContentView, menuFor tile: DockTile) -> NSMenu?
+    func dockContentView(_ view: DockContentView, menuItemsFor tile: DockTile) -> [DockMenuItem]
+    func dockContentView(_ view: DockContentView, didSelect command: DockTileMenuCommand, on tile: DockTile)
     func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile)
     func dockContentView(_ view: DockContentView, needsIconFor tile: DockTile, pixelSize: Int)
 }
@@ -18,6 +19,8 @@ public final class DockContentView: NSView {
     public var reservedStrip: CGFloat?
 
     public private(set) var snapshot: DockSnapshot = .empty
+
+    private let tileMenu = DockTileMenuController()
     public private(set) var currentLayout: DockLayout = .empty
 
     private let backdrop = DockBackdrop()
@@ -27,6 +30,7 @@ public final class DockContentView: NSView {
     private var cursor: CGPoint?
     private var pressedIdentifier: DockTileID?
     private var dimmedIdentifier: DockTileID?
+    private var menuIdentifier: DockTileID?
     private var dropTargetIdentifier: DockTileID?
     private var trackingRegion: NSTrackingArea?
     private var frameLink: CADisplayLink?
@@ -267,26 +271,6 @@ public final class DockContentView: NSView {
         }
     }
 
-    override public func rightMouseDown(with event: NSEvent) {
-        let point = location(of: event)
-        guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
-            index < snapshot.tiles.count
-        else { return }
-
-        let tile = snapshot.tiles[index]
-        guard tile.isInteractive, let menu = delegate?.dockContentView(self, menuFor: tile) else { return }
-
-        let frame = currentLayout.tileFrames[index]
-        let width = menu.size.width
-        let anchor = CGPoint(
-            x: min(max(frame.midX - width / 2, bounds.minX + 4), max(bounds.maxX - width - 4, bounds.minX + 4)),
-            y: frame.maxY + Self.contextMenuGap
-        )
-        menu.popUp(positioning: nil, at: anchor, in: self)
-    }
-
-    private static let contextMenuGap: CGFloat = 6
-
     private var isDarkAppearance: Bool {
         effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
     }
@@ -324,7 +308,9 @@ public final class DockContentView: NSView {
         let delta = (now - lastTick).clamped(to: 0...Self.maximumFrameDelta)
         lastTick = now
 
-        if magnificationAvailable, let point = pointerLocation(), interactiveRect.contains(point) {
+        if menuIdentifier != nil {
+            magnificationTarget = 1
+        } else if magnificationAvailable, let point = pointerLocation(), interactiveRect.contains(point) {
             cursor = point
             magnificationTarget = 1
         } else {
@@ -451,6 +437,55 @@ extension DockContentView {
         ) as? [URL]
     }
 
+}
+
+extension DockContentView {
+    override public func rightMouseDown(with event: NSEvent) {
+        let point = location(of: event)
+        guard let window,
+            let index = DockGeometry.hitIndex(in: currentLayout, at: point),
+            index < snapshot.tiles.count
+        else { return }
+
+        let tile = snapshot.tiles[index]
+        guard tile.isInteractive else { return }
+        let items = delegate?.dockContentView(self, menuItemsFor: tile) ?? []
+        guard !items.isEmpty else { return }
+
+        let anchor = window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil))
+        beginMenuSession(for: tile.id, at: point)
+        tileMenu.present(
+            DockMenuRequest(
+                items: items,
+                anchor: anchor,
+                orientation: snapshot.appearance.orientation,
+                screen: window.screen?.visibleFrame ?? window.frame,
+                appearance: effectiveAppearance
+            ),
+            onSelect: { [weak self] item in
+                guard let self, let command = item.command else { return }
+                self.delegate?.dockContentView(self, didSelect: command, on: tile)
+            },
+            onDismiss: { [weak self] in
+                self?.endMenuSession()
+            }
+        )
+    }
+
+    private func beginMenuSession(for identifier: DockTileID, at point: CGPoint) {
+        menuIdentifier = identifier
+        setPressed(identifier)
+        guard magnificationAvailable else { return }
+        cursor = point
+        magnificationTarget = 1
+        startFrameLink()
+    }
+
+    private func endMenuSession() {
+        menuIdentifier = nil
+        setPressed(nil)
+        startFrameLink()
+    }
 }
 
 final class DockTileContainerView: NSView {

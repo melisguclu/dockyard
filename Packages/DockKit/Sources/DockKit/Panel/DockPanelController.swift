@@ -113,8 +113,33 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         }
     }
 
-    public func dockContentView(_ view: DockContentView, menuFor tile: DockTile) -> NSMenu? {
-        DockTileMenuBuilder.menu(for: tile, target: self, action: #selector(performMenuCommand(_:)))
+    public func dockContentView(_ view: DockContentView, menuItemsFor tile: DockTile) -> [DockMenuItem] {
+        DockTileMenuBuilder.items(for: tile)
+    }
+
+    public func dockContentView(
+        _ view: DockContentView,
+        didSelect command: DockTileMenuCommand,
+        on tile: DockTile
+    ) {
+        switch command {
+        case .activate:
+            activator.activateOrLaunch(tile)
+        case .showInFinder:
+            guard let url = tile.url else { return }
+            activator.reveal(url)
+        case .hide:
+            activator.hide(tile)
+        case .unhide:
+            activator.unhide(tile)
+        case .quit:
+            activator.quit(tile)
+        case .forceQuit:
+            activator.forceQuit(tile)
+        case .open:
+            guard let url = tile.url else { return }
+            activator.open(url)
+        }
     }
 
     public func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile) {
@@ -132,28 +157,6 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
             guard !Task.isCancelled, let self else { return }
             self.contentView.setIcon(image, for: identifier)
             self.iconTasks[identifier] = nil
-        }
-    }
-
-    @objc private func performMenuCommand(_ sender: NSMenuItem) {
-        guard let box = sender.representedObject as? DockTileMenuCommandBox else { return }
-        switch box.command {
-        case .activate:
-            activator.activateOrLaunch(box.tile)
-        case .showInFinder:
-            guard let url = box.tile.url else { return }
-            activator.reveal(url)
-        case .hide:
-            activator.hide(box.tile)
-        case .unhide:
-            activator.unhide(box.tile)
-        case .quit:
-            activator.quit(box.tile)
-        case .forceQuit:
-            activator.forceQuit(box.tile)
-        case .open:
-            guard let url = box.tile.url else { return }
-            activator.open(url)
         }
     }
 

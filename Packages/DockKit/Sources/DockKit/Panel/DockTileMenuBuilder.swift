@@ -1,8 +1,7 @@
-import AppKit
 import DockCore
 import Foundation
 
-public enum DockTileMenuCommand: Sendable {
+public enum DockTileMenuCommand: Sendable, Equatable {
     case activate
     case open
     case showInFinder
@@ -12,70 +11,43 @@ public enum DockTileMenuCommand: Sendable {
     case forceQuit
 }
 
-public final class DockTileMenuCommandBox: NSObject {
-    public let command: DockTileMenuCommand
-    public let tile: DockTile
-
-    public init(command: DockTileMenuCommand, tile: DockTile) {
-        self.command = command
-        self.tile = tile
-    }
-}
-
-@MainActor
 public enum DockTileMenuBuilder {
-    public static func menu(for tile: DockTile, target: AnyObject, action: Selector) -> NSMenu? {
-        let menu = NSMenu()
-        menu.autoenablesItems = false
-        let context = Context(menu: menu, tile: tile, target: target, action: action)
+    public static func items(for tile: DockTile) -> [DockMenuItem] {
+        var items: [DockMenuItem] = []
 
         switch tile.kind {
         case .application:
             if tile.isRunning {
-                append(.activate, title: "Show", to: context)
-                append(
-                    tile.isHidden ? .unhide : .hide,
-                    title: tile.isHidden ? "Show All Windows" : "Hide",
-                    to: context
+                items.append(.command(.activate, title: "Show"))
+                items.append(
+                    .command(
+                        tile.isHidden ? .unhide : .hide,
+                        title: tile.isHidden ? "Show All Windows" : "Hide"
+                    )
                 )
             } else {
-                append(.activate, title: "Open", to: context)
+                items.append(.command(.activate, title: "Open"))
             }
             if tile.url != nil {
-                menu.addItem(.separator())
-                append(.showInFinder, title: "Show in Finder", to: context)
+                items.append(.separator)
+                items.append(.command(.showInFinder, title: "Show in Finder"))
             }
             if tile.isRunning {
-                menu.addItem(.separator())
-                append(.quit, title: "Quit", to: context)
-                append(.forceQuit, title: "Force Quit", to: context)
+                items.append(.separator)
+                items.append(.command(.quit, title: "Quit"))
+                items.append(.command(.forceQuit, title: "Force Quit"))
             }
         case .folder:
-            append(.open, title: "Open", to: context)
-            append(.showInFinder, title: "Show in Finder", to: context)
+            items.append(.command(.open, title: "Open"))
+            items.append(.command(.showInFinder, title: "Show in Finder"))
         case .url:
-            append(.open, title: "Open", to: context)
+            items.append(.command(.open, title: "Open"))
         case .trash:
-            append(.open, title: "Open", to: context)
+            items.append(.command(.open, title: "Open"))
         case .separator, .spacer:
-            return nil
+            return []
         }
 
-        return menu.items.isEmpty ? nil : menu
-    }
-
-    private struct Context {
-        let menu: NSMenu
-        let tile: DockTile
-        let target: AnyObject
-        let action: Selector
-    }
-
-    private static func append(_ command: DockTileMenuCommand, title: String, to context: Context) {
-        let item = NSMenuItem(title: title, action: context.action, keyEquivalent: "")
-        item.target = context.target
-        item.isEnabled = true
-        item.representedObject = DockTileMenuCommandBox(command: command, tile: context.tile)
-        context.menu.addItem(item)
+        return items
     }
 }
