@@ -32,6 +32,7 @@ Dockyard is a menu bar agent with no Dock icon of its own. Its status item offer
 - The Trash's own empty and full artwork, and Calendar showing today's weekday and date
 - Running indicators, hidden-app dimming, and the Trash tile with its empty and full states
 - Click to launch or activate, right-click for Show in Finder / Hide / Quit / Force Quit
+- Right-click a running app for its own windows, commands, and recent documents — New Window, New Incognito Window, Next Track, Xcode's recent projects — read from the app's menu bar (optional, needs Accessibility)
 - Drag files onto an app tile to open them with that app
 - Dock magnification, using the system's own `tilesize` and `largesize`
 - Reads `tilesize`, `largesize`, `magnification`, `orientation`, `show-process-indicators`, and `show-recents` from the system, so it changes when the Dock changes
@@ -58,7 +59,7 @@ Reproduce with `Scripts/benchmark.sh` while Dockyard is running. Idle-wakeup and
 ## Privacy and security
 
 - **No network code.** No `URLSession`, no sockets, no telemetry, no crash reporting, no update ping. CI greps for the whole class of APIs and fails the build on any hit.
-- **No permission prompts** in the default configuration. No Accessibility, no Screen Recording, no Full Disk Access, no helper tool, no root.
+- **No permission prompts** in the default configuration. No Screen Recording, no Full Disk Access, no helper tool, no root. Accessibility is the one permission Dockyard can hold, it is off until you grant it from Settings, and it buys exactly one thing: a tile's menu listing the app's windows and its own commands. See `Docs/SECURITY-MODEL.md`.
 - **No subprocesses and no AppleScript.** Dockyard never spawns a process, never calls `killall`, and never sends an Apple Event.
 - **Never writes to `com.apple.dock`** and never restarts the Dock. The only state it persists is its own preferences.
 - **Hardened Runtime** with an entitlements file that grants nothing. Verify a build yourself:

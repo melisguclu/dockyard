@@ -6,7 +6,11 @@ import QuartzCore
 @MainActor
 public protocol DockContentViewDelegate: AnyObject {
     func dockContentView(_ view: DockContentView, didActivate tile: DockTile)
-    func dockContentView(_ view: DockContentView, menuItemsFor tile: DockTile) -> [DockMenuItem]
+    func dockContentView(
+        _ view: DockContentView,
+        menuItemsFor tile: DockTile,
+        availableHeight: CGFloat
+    ) -> [DockMenuItem]
     func dockContentView(_ view: DockContentView, didSelect command: DockTileMenuCommand, on tile: DockTile)
     func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile)
     func dockContentView(_ view: DockContentView, needsIconFor tile: DockTile, pixelSize: Int)
@@ -449,7 +453,9 @@ extension DockContentView {
 
         let tile = snapshot.tiles[index]
         guard tile.isInteractive else { return }
-        let items = delegate?.dockContentView(self, menuItemsFor: tile) ?? []
+        let screen = window.screen?.visibleFrame ?? window.frame
+        let height = screen.height - 2 * tileMenu.metrics.screenInset
+        let items = delegate?.dockContentView(self, menuItemsFor: tile, availableHeight: height) ?? []
         guard !items.isEmpty else { return }
 
         let anchor = window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil))
@@ -459,7 +465,7 @@ extension DockContentView {
                 items: items,
                 anchor: anchor,
                 orientation: snapshot.appearance.orientation,
-                screen: window.screen?.visibleFrame ?? window.frame,
+                screen: screen,
                 appearance: effectiveAppearance
             ),
             onSelect: { [weak self] item in

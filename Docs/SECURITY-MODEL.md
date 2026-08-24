@@ -9,7 +9,7 @@ Dockyard is an always-running unsandboxed agent, which earns a real threat model
 | The user's app list and usage patterns | Exfiltration | Zero network code. No `URLSession`, no sockets, no telemetry. Verifiable with `lsof -nP -a -p "$(pgrep -x Dockyard)" -i` and by reading the source. CI fails on the API class. |
 | Arbitrary code execution | A hostile process writes a malicious `com.apple.dock` entry that Dockyard then launches | Strict validation of every entry. Note that a process able to write that domain can already do worse directly, so this is defence in depth, not a claimed security boundary. |
 | Supply chain | A malicious binary published under the project name | Signed and notarized builds, published SHA-256, pinned CI action SHAs, zero runtime dependencies, signed tags. |
-| Privilege escalation | The app requesting more access than it needs and becoming a target | No TCC permission is requested in any default configuration. No helper tool, no root, no privileged operation. |
+| Privilege escalation | The app requesting more access than it needs and becoming a target | No TCC permission is requested in any default configuration. Accessibility is optional, off until the user grants it from Settings, and used only for tile menus. No helper tool, no root, no privileged operation. |
 | Local tampering | Modification of the installed bundle | Hardened Runtime with library validation left enabled, Gatekeeper, stapled notarization. |
 
 ## Permission posture
@@ -20,12 +20,23 @@ The core feature requires **no** TCC prompt:
 - `NSWorkspace.runningApplications`: no permission.
 - `NSWorkspace.icon(forFile:)`: no permission for paths the user can already read.
 - Launching and activating applications: no permission.
-- `CGWindowListCopyWindowInfo` bounds, layer, and owner name: no permission. Only window **titles** and image capture are gated, and Dockyard reads neither.
+- `CGWindowListCopyWindowInfo` bounds, layer, and owner name: no permission. Window **titles** and image capture are gated there, and Dockyard reads neither through that API.
 - Reading two PNG files from `/System/Library/CoreServices/Dock.app/Contents/Resources/` for the Trash artwork: no permission. These are world-readable system files, read as image data only, never executed, and behind a fallback chain because the layout is undocumented.
 - `getattrlist` for the Trash's entry count: no permission. Listing `~/.Trash` would need Full Disk Access, which is why Dockyard reads only the count and never the names.
 - Drawing windows: no permission.
 
-Screen Recording is never requested. Accessibility is never requested in v1; if a window list is ever added it will be off by default, explained in-app before the prompt, and fully optional.
+Screen Recording is never requested.
+
+## Accessibility, the one optional permission
+
+Tile menus can list a running app's windows, its own commands — *New Window*, *Next Track* — and its recent documents. That needs the Accessibility API, so it is the only TCC permission Dockyard can hold, and the terms are deliberately narrow:
+
+- **Off by default and never prompted for.** The grant is requested only from a button in Settings that says what it is for. `AXIsProcessTrusted()` is checked before every read, and with no grant the tile menu is byte-for-byte what it was before the feature existed.
+- **Read-only, except for what the user clicks.** The app reads the target's window titles, its menu-bar item titles, their identifiers, shortcuts, and enabled state, and the entries in the submenus of its File menu — which is where recent documents live, so recently opened file *names* are read. It writes nothing and presses nothing until the user picks a row, at which point exactly one `AXPress`, `AXRaise`, or `AXMinimized` clear is sent to the element that row named.
+- **No keystroke or event synthesis.** No `CGEvent` posting, no `AXObserver` on keyboard or focus, no reading of text fields, documents, or web content. The menu bar and the window list are the whole surface.
+- **Nothing is persisted.** Window titles and command titles live in memory for as long as the app is running and are dropped when it exits. They are never written to disk, and there is no network code to send them anywhere.
+
+An Accessibility grant is genuinely powerful — it would let this process drive any app on the system — so the honest statement is that the user is trusting the binary, not a sandbox. The compensating controls are that the grant is optional, the feature is worth exactly one menu, and the code that uses it is six files under `Packages/DockCore/Sources/DockCore/AppMenu/`.
 
 ## Why not sandboxed
 

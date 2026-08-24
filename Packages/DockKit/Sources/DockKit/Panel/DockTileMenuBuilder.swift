@@ -9,45 +9,156 @@ public enum DockTileMenuCommand: Sendable, Equatable {
     case unhide
     case quit
     case forceQuit
+    case appMenu(AppMenuCommand)
+    case window(AppWindowEntry)
 }
 
 public enum DockTileMenuBuilder {
-    public static func items(for tile: DockTile) -> [DockMenuItem] {
-        var items: [DockMenuItem] = []
+    public static let maximumTitleLength = 44
 
+    struct Section {
+        let items: [DockMenuItem]
+        let trimPriority: Int?
+
+        init(_ items: [DockMenuItem], trimPriority: Int? = nil) {
+            self.items = items
+            self.trimPriority = trimPriority
+        }
+    }
+
+    public static func items(
+        for tile: DockTile,
+        appMenu: AppMenuSnapshot? = nil,
+        availableHeight: CGFloat = .infinity,
+        metrics: DockMenuMetrics = .current
+    ) -> [DockMenuItem] {
         switch tile.kind {
         case .application:
-            if tile.isRunning {
-                items.append(.command(.activate, title: "Show"))
-                items.append(
-                    .command(
-                        tile.isHidden ? .unhide : .hide,
-                        title: tile.isHidden ? "Show All Windows" : "Hide"
-                    )
+            return joined(
+                trimmed(
+                    applicationSections(for: tile, appMenu: appMenu),
+                    availableHeight: availableHeight,
+                    metrics: metrics
                 )
-            } else {
-                items.append(.command(.activate, title: "Open"))
-            }
-            if tile.url != nil {
-                items.append(.separator)
-                items.append(.command(.showInFinder, title: "Show in Finder"))
-            }
-            if tile.isRunning {
-                items.append(.separator)
-                items.append(.command(.quit, title: "Quit"))
-                items.append(.command(.forceQuit, title: "Force Quit"))
-            }
+            )
         case .folder:
-            items.append(.command(.open, title: "Open"))
-            items.append(.command(.showInFinder, title: "Show in Finder"))
-        case .url:
-            items.append(.command(.open, title: "Open"))
-        case .trash:
-            items.append(.command(.open, title: "Open"))
+            return [
+                .command(.open, title: "Open"),
+                .command(.showInFinder, title: "Show in Finder"),
+            ]
+        case .url, .trash:
+            return [.command(.open, title: "Open")]
         case .separator, .spacer:
             return []
         }
+    }
 
+    static func truncated(_ title: String) -> String {
+        guard title.count > maximumTitleLength else { return title }
+        let budget = maximumTitleLength - 1
+        let head = budget - budget / 3
+        let tail = budget - head
+        return "\(title.prefix(head))…\(title.suffix(tail))"
+    }
+
+    private static func applicationSections(
+        for tile: DockTile,
+        appMenu: AppMenuSnapshot?
+    ) -> [Section] {
+        var sections: [Section] = []
+
+        if tile.isRunning, let appMenu {
+            sections.append(
+                Section(
+                    appMenu.commands.map { DockMenuItem.command(.appMenu($0), title: $0.title) },
+                    trimPriority: 0
+                )
+            )
+            sections.append(
+                Section(
+                    appMenu.recents.map { DockMenuItem.command(.appMenu($0), title: truncated($0.title)) },
+                    trimPriority: 2
+                )
+            )
+            sections.append(
+                Section(
+                    appMenu.windows.map { DockMenuItem.command(.window($0), title: truncated($0.title)) },
+                    trimPriority: 1
+                )
+            )
+        }
+
+        if tile.isRunning {
+            sections.append(
+                Section([
+                    .command(.activate, title: "Show"),
+                    .command(
+                        tile.isHidden ? .unhide : .hide,
+                        title: tile.isHidden ? "Show All Windows" : "Hide"
+                    ),
+                ])
+            )
+        } else {
+            sections.append(Section([.command(.activate, title: "Open")]))
+        }
+
+        if tile.url != nil {
+            sections.append(Section([.command(.showInFinder, title: "Show in Finder")]))
+        }
+
+        if tile.isRunning {
+            sections.append(
+                Section([
+                    .command(.quit, title: "Quit"),
+                    .command(.forceQuit, title: "Force Quit"),
+                ])
+            )
+        }
+
+        return sections
+    }
+
+    static func trimmed(
+        _ sections: [Section],
+        availableHeight: CGFloat,
+        metrics: DockMenuMetrics
+    ) -> [Section] {
+        var sections = sections.filter { !$0.items.isEmpty }
+        while height(of: sections, metrics: metrics) > availableHeight {
+            let trimmable = sections.indices.filter {
+                sections[$0].trimPriority != nil && !sections[$0].items.isEmpty
+            }
+            guard
+                let index = trimmable.max(by: {
+                    (sections[$0].trimPriority ?? 0) < (sections[$1].trimPriority ?? 0)
+                })
+            else { break }
+            sections[index] = Section(
+                sections[index].items.dropLast(),
+                trimPriority: sections[index].trimPriority
+            )
+            sections = sections.filter { !$0.items.isEmpty }
+        }
+        return sections
+    }
+
+    static func height(of sections: [Section], metrics: DockMenuMetrics) -> CGFloat {
+        let rows = sections.reduce(0) { $0 + $1.items.count }
+        let separators = max(sections.filter { !$0.items.isEmpty }.count - 1, 0)
+        return 2 * metrics.verticalPadding
+            + CGFloat(rows) * metrics.rowHeight
+            + CGFloat(separators) * metrics.separatorHeight
+            + metrics.tailLength
+    }
+
+    private static func joined(_ sections: [Section]) -> [DockMenuItem] {
+        var items: [DockMenuItem] = []
+        for section in sections where !section.items.isEmpty {
+            if !items.isEmpty {
+                items.append(.separator)
+            }
+            items.append(contentsOf: section.items)
+        }
         return items
     }
 }

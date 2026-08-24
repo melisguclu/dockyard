@@ -29,8 +29,40 @@ struct SettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+
+            Section {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("App commands and window lists")
+                        Text(appMenuStatus)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if !preferences.appMenusAuthorized {
+                        Button("Grant Access…") {
+                            preferences.requestAppMenuAuthorization()
+                        }
+                    }
+                }
+            } footer: {
+                Text(
+                    """
+                    Accessibility access lets a tile's menu list the app's own \
+                    windows and commands, such as New Window or Next Track.
+                    """
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
+    }
+
+    private var appMenuStatus: String {
+        preferences.appMenusAuthorized
+            ? "Enabled. Right-click a running app to see its windows and commands."
+            : "Off. Tile menus show only Dockyard's own commands."
     }
 
     private var displays: some View {
@@ -72,7 +104,7 @@ struct SettingsView: View {
             Text(versionString)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Text("A dock on every display. No permissions, no network, no polling.")
+            Text("A dock on every display. No network, no polling, no required permissions.")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)

@@ -34,6 +34,7 @@ final class Preferences: ObservableObject {
     }
 
     @Published var knownDisplays: [DisplayDescriptor] = []
+    @Published private(set) var appMenusAuthorized = AccessibilityAuthorization.isTrusted
     @Published var launchesAtLogin: Bool {
         didSet {
             guard launchesAtLogin != loginItemManager.isEnabled else { return }
@@ -71,6 +72,19 @@ final class Preferences: ObservableObject {
         }
         guard keys != disabledDisplayKeys else { return }
         disabledDisplayKeys = keys
+    }
+
+    func refreshAppMenuAuthorization() {
+        let current = AccessibilityAuthorization.isTrusted
+        guard appMenusAuthorized != current else { return }
+        appMenusAuthorized = current
+    }
+
+    func requestAppMenuAuthorization() {
+        AccessibilityAuthorization.requestTrust()
+        refreshAppMenuAuthorization()
+        guard !appMenusAuthorized else { return }
+        AccessibilityAuthorization.openSettings()
     }
 
     func refreshLaunchAtLoginState() {

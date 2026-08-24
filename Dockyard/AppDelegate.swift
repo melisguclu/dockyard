@@ -9,8 +9,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let preferences = Preferences()
     private let store = DockStateStore()
     private let displayObserver = DisplayConfigurationObserver()
-    private lazy var coordinator = DisplayCoordinator(iconProvider: store.iconProvider)
+    private lazy var coordinator = DisplayCoordinator(
+        iconProvider: store.iconProvider,
+        appMenuStore: store.appMenuStore
+    )
 
+    private var accessibilityObserver: NSObjectProtocol?
     private var statusItemController: StatusItemController?
     private var settingsWindowController: SettingsWindowController?
     private var cancellables: Set<AnyCancellable> = []
@@ -51,6 +55,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onQuit: { NSApplication.shared.terminate(nil) }
         )
 
+        accessibilityObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.apple.accessibility.api"),
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.preferences.refreshAppMenuAuthorization()
+                self.store.refreshRunningApplications()
+            }
+        }
+
         store.start()
         coordinator.reconcile()
 
@@ -59,6 +75,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if let accessibilityObserver {
+            DistributedNotificationCenter.default().removeObserver(accessibilityObserver)
+        }
         store.stop()
         displayObserver.stop()
         coordinator.tearDown()
@@ -75,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             settingsWindowController = SettingsWindowController(preferences: preferences)
         }
         preferences.refreshLaunchAtLoginState()
+        preferences.refreshAppMenuAuthorization()
         settingsWindowController?.present()
     }
 

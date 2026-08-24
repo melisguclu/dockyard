@@ -98,6 +98,85 @@ Controllers are **pooled** for two minutes after a display disappears. Closing a
 - The balloon is measured from a screenshot of the real Dock's menu rather than guessed: an 11 pt corner radius and a tail that hangs 10.6 pt below the body and spans about 25 pt where it leaves it. The tail is drawn as three tangent arcs rather than a triangle — a 6.5 pt concave fillet at each shoulder, straight flanks aimed at a virtual apex 14 pt down, and a 4.2 pt cap that blunts the point 3.4 pt short of it. The Dock's own tail is a continuous-curvature blend rather than circular arcs, which is the only visible difference left at the shoulders. The tail is centred on the tile and clamped to stay clear of the corners; `DockMenuLayout` builds the outline once for a bottom dock and rotates it for the two side orientations, so all three read from the same measurements.
 - The balloon is an `NSVisualEffectView` with the `.menu` material, masked to that outline, with the hairline stroked over it. This is the one place the app fakes glass on macOS 26: a tapered tail cannot be expressed as a rounded rectangle, so no arrangement of `NSGlassEffectView`s produces the shape, and a masked glass view keeps its refraction at the rectangle it was given rather than at the mask. Shape fidelity wins over material fidelity here because the tail is what identifies the menu as the Dock's.
 
+## App menus
+
+The system Dock's menu for a running app carries items the app itself supplies — Chrome's *New Window*, Spotify's recently played tracks. Those come from `applicationDockMenu(_:)` (or an `NSDockTilePlugIn`) and the Dock collects them over a private Mach service, so **there is no way for another process to ask an app for its dock menu**. Dockyard reconstructs an equivalent menu from what the app already publishes over the Accessibility API instead: its window list, the commands in its own menu bar, and its recent documents.
+
+### The rejected shortcut: borrowing the Dock's own menu
+
+There is one way to get the real thing verbatim, and it was built and measured before being thrown away, so it is recorded here rather than rediscovered. The `com.apple.dock` process exposes its tiles over Accessibility, each with an `AXShowMenu` action, and performing it produces the genuine menu — Spotify's *Recently Played* with real track names, Xcode's recent projects, all of it — readable as a flat list where the app's section appears as a disabled header followed by items whose titles carry three leading spaces.
+
+It is unusable because **the menu only exists while it is drawn**. `AXShownMenuUIElement` on a tile returns `kAXErrorNoValue` until a menu is open, the tile has no children before `AXShowMenu`, and no attribute yields the menu without displaying it. Harvesting therefore means showing the system Dock's menu and dismissing it, and that is visible: the open-read-dismiss cycle measured 32–140 ms warm, 47–438 ms on an app's first harvest, with one observed outlier at 1.5 s. A screen capture taken while the cycle was held open confirms a fully rendered menu, not a partial fade. Selecting one of the harvested rows needs a second cycle, since the elements do not survive the dismissal, so the interaction costs two flashes of a ghost menu on whichever display hosts the real Dock. Verbatim fidelity is not worth a menu that appears to open by itself, and the approach is also dead whenever the real Dock is absent or the tile cannot be matched.
+
+That makes the feature the app's only optional permission. Without Accessibility access the tile menu is exactly what it was before; nothing degrades and nothing is nagged for. `AppMenuStore` checks `AXIsProcessTrusted()` before every refresh and the grant is picked up from the `com.apple.accessibility.api` distributed notification rather than by polling for it.
+
+### Why the reads are cached rather than taken on right-click
+
+Every Accessibility read is a synchronous IPC into the target app, and a two-level walk of a menu bar is hundreds of them. `Scripts/probe-app-menus.swift` prints the live numbers; on an M1 MacBook Pro, macOS 26.5:
+
+| | entries | AX calls | first walk | second walk |
+|---|---|---|---|---|
+| Xcode | 288 | 1418 | 1021 ms | 104 ms |
+| Chrome | 156 | 728 | 60 ms | 20 ms |
+| Word | 146 | 769 | 507 ms | 56 ms |
+| Finder | 119 | 574 | 118 ms | 12 ms |
+| Terminal | 90 | 470 | 125 ms | 67 ms |
+| Slack | 76 | 396 | 51 ms | 7 ms |
+| Spotify | 49 | 261 | 49 ms | 7 ms |
+| Docker Desktop | 14 | 70 | 32 ms | 2 ms |
+
+Most of the first-walk cost is a one-time handshake with a process that has not been addressed over Accessibility before, and it is charged per process rather than per read: the window list alone costs 40 to 85 ms on first contact against 0.5 to 7 ms afterwards for the same app.
+
+Neither column is affordable on a right-click. A tenth of a second before the menu appears is a visible stall and Xcode's first second reads as a hang, so `rightMouseDown:` never touches the Accessibility API at all: `DockTileMenuBuilder` composes the menu from whatever `AppMenuStore` already holds, and an app with no cached snapshot simply gets the base menu.
+
+The cache is filled from the same `NSWorkspace` notifications that already drive the running set. A pid seen for the first time gets a full walk; the app that *becomes* frontmost gets its window list re-read, which is the part that goes stale as tabs and documents change. One in-flight task per pid, and both are dropped when the process exits.
+
+"Becomes frontmost" is load-bearing, and getting it wrong is what a test now guards. `DockStateStore.rebuild()` runs on every workspace notification and on every write to the watched preferences directory — far more often than the rendered output changes, which is why it diffs before publishing. The first version of this cache refreshed the active app on every one of those calls, and the unified log showed the frontmost app being re-read every ten seconds while the machine sat idle: an accidental poll, in an app whose observation path has none. The store now compares the active pid against the previous one and does nothing when it matches, so twenty identical rebuilds cost zero Accessibility calls.
+
+The price of having no timer is that window titles are only as fresh as the last activation: switch tabs in an already-frontmost Chrome and its tile menu still lists the previous title. The event-driven fix is an `AXObserver` per app on `kAXTitleChangedNotification` and `kAXWindowCreatedNotification`, which is the right shape for this codebase and is not built yet.
+
+A snapshot is stored even when the walk yields nothing, so a silent app is not re-walked on every rebuild. An empty snapshot is retried in full the next time that app comes forward, which keeps one slow first contact from poisoning the tile for the rest of the session.
+
+The walk runs inside an `actor`, which is what keeps it off the main thread. `AXUIElement` is not `Sendable`, so the actor is given a pid, creates its elements internally, and returns only value types; nothing else in the app ever holds an Accessibility reference. `AXUIElementSetMessagingTimeout` bounds a hung app to two seconds instead of the six-second default.
+
+### Recent documents, and why `AXIdentifier` beats every other signal
+
+`AXIdentifier` on a menu item is the item's **selector name**, and that is the strongest classifier available anywhere in this feature: unlike a title it is not localized, and unlike a shortcut it does not depend on what the user has rebound. AppKit's standard recent-documents menu populates its items with `_openRecentDocument:`, so a tile's menu can list an app's recent files by identity rather than by guessing at a menu called *Open Recent*:
+
+| | identifiers present | recents found |
+|---|---|---|
+| Xcode | 59 of 62 real selectors | 9 |
+| Preview | 34 of 38 | 10 |
+| Finder, Terminal | all, but nib-generated (`_NS:693`) | — |
+| Chrome, Slack, Cursor | all, but Electron's single `itemSelected:` | — |
+
+That table is also the limit of the technique. A native document-based app gets its recent files for free and correctly; an Electron app publishes one selector for every item in its menus and cannot be read this way at all, which is why Cursor's 23 recent folders and Word's 11 recent documents — Word uses its own `galleryItemSelected:` — are visible in the menu bar but not surfaced. Reading them would mean matching English titles, and a rule that works only for English menus is worse than no rule.
+
+Recents are the one place the walk goes three levels deep, into the submenus of the File-menu items, bounded at six submenus and forty entries each. That is silent: reading a submenu populates it over Accessibility without opening anything on screen, confirmed by a screen capture of the menu bar taken during a walk that read every submenu of six apps. It is not free — Xcode's full walk goes from 104 ms to about 735 ms with submenus included — which is affordable only because none of it happens on the right-click path.
+
+### Why commands are matched on shortcuts, not titles
+
+Menu titles are localized and app-specific; keyboard shortcuts are neither. A curated table of English titles would have surfaced nothing on a Turkish Chrome, so the selector is the shortcut:
+
+- **Creation commands** are the enabled items in the menu next to the application menu — index 2, the File slot in every Cocoa app — whose shortcut is ⌘N, ⇧⌘N, ⌥⌘N, or ⌘T, ordered by that list rather than by menu position so window creation leads. Chrome yields *New Window*, *New Incognito Window*, *New Tab*, which is the system Dock's menu plus one.
+- **Transport commands** come from whichever menu holds both ⌘← and ⌘→, which identifies a playback menu without naming one: Spotify's *Playback* yields *Play*, *Next*, *Previous*. The toggle is the menu's first shortcut-less item, since play/pause carries no shortcut of its own.
+
+Positional indexing is what keeps this from misfiring on an app with no File menu. Docker Desktop's index 2 is *Edit*, and none of ⌘Z, ⌘X, ⌘C match a creation shortcut, so it contributes nothing rather than offering *Undo* from the dock.
+
+Items that only open a submenu are skipped, and so is everything inside one. Terminal's *New Window* is a list of profiles, and pressing its parent does nothing; its children are excluded too, because *Window* and *Tab* read as nothing at all once they are lifted out of the menu that gave them their meaning. The cost is that an app which files all its creation commands under a submenu offers none: Xcode's *File ▸ New ▸* contributes nothing, and Xcode's tile is carried by its recent projects instead.
+
+The shortcut cannot say what a command *means*, only that it creates something, and the two do come apart. Cursor binds ⌘N to *New Text File* and ⇧⌘N to *New Window*, so its rows lead with the file rather than the window. Ranking by shortcut still beats ranking by menu position, which would put *New Tab* above *New Window* on every browser, so the ordering is wrong for fewer apps this way rather than for none.
+
+Commands are invoked with `AXPress` on the menu item, which runs the action without the menu ever appearing on screen and returns in about 2 ms. Titles are re-resolved against the live menu bar at that point and matched on title *and* shortcut, because a menu can hold several items with the same name — Finder's File menu has three called *Eject*. A recent document is resolved one level further, through the submenu title it was found under. Creation commands and recent documents activate the app first; transport commands deliberately do not, because skipping to the next track should not pull Spotify forward.
+
+Window rows raise their window through `AXRaise` after clearing `AXMinimized`, and are matched on index *and* title so a window list that shifted between the cached read and the click aborts instead of raising the wrong window. Titles longer than 44 characters are shortened in the middle, and the balloon is capped at 320 points wide, because window titles are unbounded and a browser tab's title would otherwise stretch the menu across the display.
+
+### Fitting the balloon on the display
+
+Adding these sections took the menu from at most seven rows to a possible thirty-one — six commands, eight recent documents, twelve windows, and five of Dockyard's own — and `DockMenuLayout` clamps the balloon's *origin* to the screen but never its *size*, so an overlong menu would run off the top with its lower rows unreachable. Measured against `DockMenuMetrics.current`, the worst case is 821 pt against 834 pt of usable height on a 1440×900 built-in display: it fits by 13 pt, which is not a margin, it is a coincidence. A 1280×800 scaled mode overflows.
+
+`DockTileMenuBuilder` therefore takes the available height and trims to it. Sections carry a trim priority and the builder drops one row at a time from the highest-priority section that still has any: recent documents first, then the window list, then the app's own commands. Dockyard's own rows have no priority and are never trimmed, so the menu degrades to *Show / Hide / Show in Finder / Quit / Force Quit* rather than to something unusable. The height is computed from the same metrics the content view lays out with, and the tail is always counted even for the side orientations that put it on the width, which errs 10.6 pt toward safety.
+
 ## Geometry
 
 `DockGeometry` is pure and takes a `DockLayoutInput`, so it is fully testable headless. It handles all three orientations through a single along-axis and across-axis abstraction.

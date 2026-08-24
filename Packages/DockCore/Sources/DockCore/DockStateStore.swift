@@ -10,6 +10,7 @@ public final class DockStateStore {
     }
 
     public let iconProvider: IconProvider
+    public let appMenuStore: AppMenuStore
 
     private let subject: CurrentValueSubject<DockSnapshot, Never>
     private let reader: DockPreferencesReader
@@ -33,6 +34,7 @@ public final class DockStateStore {
         self.iconProvider = iconProvider
         self.runningObserver = runningObserver
         self.preferencesWatcher = preferencesWatcher
+        appMenuStore = AppMenuStore()
         subject = CurrentValueSubject(.empty)
     }
 
@@ -95,6 +97,8 @@ public final class DockStateStore {
     public func rebuild() {
         let state = DockLog.signposts.beginInterval("snapshot-build")
         defer { DockLog.signposts.endInterval("snapshot-build", state) }
+
+        appMenuStore.update(with: runningObserver.applications)
 
         let tiles = TileOrdering.tiles(
             preferences: resolved,

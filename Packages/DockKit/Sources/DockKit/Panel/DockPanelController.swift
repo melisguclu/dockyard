@@ -11,6 +11,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     private let panel: DockPanel
     private let contentView: DockContentView
     private let iconProvider: IconProvider
+    private let appMenuStore: AppMenuStore?
     private let activator = ApplicationActivator()
 
     private var screenFrame: CGRect = .zero
@@ -22,11 +23,13 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         identity: DisplayIdentity,
         displayID: CGDirectDisplayID,
         iconProvider: IconProvider,
+        appMenuStore: AppMenuStore? = nil,
         metrics: DockMetrics = .current
     ) {
         self.identity = identity
         self.displayID = displayID
         self.iconProvider = iconProvider
+        self.appMenuStore = appMenuStore
         panel = DockPanel.make()
         contentView = DockContentView(frame: .zero)
         contentView.metrics = metrics
@@ -113,8 +116,16 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         }
     }
 
-    public func dockContentView(_ view: DockContentView, menuItemsFor tile: DockTile) -> [DockMenuItem] {
-        DockTileMenuBuilder.items(for: tile)
+    public func dockContentView(
+        _ view: DockContentView,
+        menuItemsFor tile: DockTile,
+        availableHeight: CGFloat
+    ) -> [DockMenuItem] {
+        DockTileMenuBuilder.items(
+            for: tile,
+            appMenu: appMenuStore?.snapshot(for: tile),
+            availableHeight: availableHeight
+        )
     }
 
     public func dockContentView(
@@ -139,6 +150,10 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         case .open:
             guard let url = tile.url else { return }
             activator.open(url)
+        case .appMenu(let command):
+            appMenuStore?.perform(command, on: tile)
+        case .window(let window):
+            appMenuStore?.activate(window, on: tile)
         }
     }
 

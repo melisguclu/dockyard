@@ -17,6 +17,7 @@ public final class DisplayCoordinator {
     public private(set) var activeIdentities: [DisplayIdentity] = []
 
     private let iconProvider: IconProvider
+    private let appMenuStore: AppMenuStore?
     private let metrics: DockMetrics
     private var controllers: [DisplayIdentity: DockPanelController] = [:]
     private var pooled: [DisplayIdentity: DockPanelController] = [:]
@@ -25,8 +26,13 @@ public final class DisplayCoordinator {
     private var isReconfiguring = false
     private var dayChangeObserver: NSObjectProtocol?
 
-    public init(iconProvider: IconProvider, metrics: DockMetrics = .current) {
+    public init(
+        iconProvider: IconProvider,
+        appMenuStore: AppMenuStore? = nil,
+        metrics: DockMetrics = .current
+    ) {
         self.iconProvider = iconProvider
+        self.appMenuStore = appMenuStore
         self.metrics = metrics
         dayChangeObserver = NotificationCenter.default.addObserver(
             forName: .NSCalendarDayChanged,
@@ -134,6 +140,7 @@ public final class DisplayCoordinator {
             identity: display.identity,
             displayID: display.displayID,
             iconProvider: iconProvider,
+            appMenuStore: appMenuStore,
             metrics: metrics
         )
         controllers[display.identity] = created
