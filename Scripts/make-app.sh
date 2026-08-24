@@ -42,4 +42,21 @@ done
 
 plutil -lint "$BUNDLE/Contents/Info.plist" > /dev/null
 
+IDENTITY="${DOCKYARD_SIGN_IDENTITY:-}"
+if [[ -z "$IDENTITY" ]]; then
+  IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
+    | awk -F'"' '/Apple Development/ { print $2; exit }')"
+fi
+
+if [[ -n "$IDENTITY" ]]; then
+  echo "==> Signing as $IDENTITY"
+  codesign --force --options runtime \
+    --identifier "com.dockyard.app" \
+    --entitlements "$ROOT/Dockyard/Dockyard.entitlements" \
+    --sign "$IDENTITY" "$BUNDLE"
+else
+  echo "==> No signing identity found, leaving the ad-hoc signature in place"
+  echo "    TCC grants such as Accessibility will not survive a rebuild"
+fi
+
 echo "==> Built $BUNDLE"
