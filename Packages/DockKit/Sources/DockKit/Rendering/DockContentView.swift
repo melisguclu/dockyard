@@ -37,7 +37,7 @@ public final class DockContentView: NSView {
     private var settledTicks = 0
     private var appliedIndicator: CGImage?
 
-    public override init(frame frameRect: NSRect) {
+    override public init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         configure()
     }
@@ -47,9 +47,9 @@ public final class DockContentView: NSView {
         configure()
     }
 
-    public override var isFlipped: Bool { false }
+    override public var isFlipped: Bool { false }
 
-    public override var isOpaque: Bool { false }
+    override public var isOpaque: Bool { false }
 
     private func configure() {
         wantsLayer = true
@@ -172,13 +172,13 @@ public final class DockContentView: NSView {
         appliedMagnification = magnification
     }
 
-    public override func layout() {
+    override public func layout() {
         super.layout()
         relayout()
         updateTrackingAreas()
     }
 
-    public override func viewDidMoveToWindow() {
+    override public func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window == nil {
             stopFrameLink()
@@ -188,13 +188,13 @@ public final class DockContentView: NSView {
         }
     }
 
-    public override func viewDidChangeEffectiveAppearance() {
+    override public func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
         IndicatorRenderer.shared.invalidate()
         relayout()
     }
 
-    public override func updateTrackingAreas() {
+    override public func updateTrackingAreas() {
         super.updateTrackingAreas()
         guard trackingRegion?.rect != bounds else { return }
         if let trackingRegion {
@@ -214,40 +214,40 @@ public final class DockContentView: NSView {
         trackingRegion = area
     }
 
-    public override func hitTest(_ point: NSPoint) -> NSView? {
+    override public func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
         guard interactiveRect.contains(local) else { return nil }
         return self
     }
 
-    public override func mouseEntered(with event: NSEvent) {
+    override public func mouseEntered(with event: NSEvent) {
         startFrameLink()
     }
 
-    public override func mouseMoved(with event: NSEvent) {
+    override public func mouseMoved(with event: NSEvent) {
         startFrameLink()
     }
 
-    public override func mouseExited(with event: NSEvent) {
+    override public func mouseExited(with event: NSEvent) {
         magnificationTarget = 0
         startFrameLink()
     }
 
-    public override func mouseDown(with event: NSEvent) {
+    override public func mouseDown(with event: NSEvent) {
         pressedIdentifier = tile(at: location(of: event))?.id
     }
 
-    public override func mouseUp(with event: NSEvent) {
+    override public func mouseUp(with event: NSEvent) {
         defer { pressedIdentifier = nil }
         guard let tile = tile(at: location(of: event)), tile.id == pressedIdentifier else { return }
         guard tile.isInteractive else { return }
         delegate?.dockContentView(self, didActivate: tile)
     }
 
-    public override func rightMouseDown(with event: NSEvent) {
+    override public func rightMouseDown(with event: NSEvent) {
         let point = location(of: event)
         guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
-              index < snapshot.tiles.count
+            index < snapshot.tiles.count
         else { return }
 
         let tile = snapshot.tiles[index]
@@ -263,28 +263,6 @@ public final class DockContentView: NSView {
     }
 
     private static let contextMenuGap: CGFloat = 6
-
-    public override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        dragOperation(for: sender)
-    }
-
-    public override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        dragOperation(for: sender)
-    }
-
-    public override func draggingExited(_ sender: (any NSDraggingInfo)?) {
-        setDropTarget(nil)
-    }
-
-    public override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        defer { setDropTarget(nil) }
-        guard let identifier = dropTargetIdentifier,
-              let tile = snapshot.tile(with: identifier),
-              let urls = fileURLs(from: sender), !urls.isEmpty
-        else { return false }
-        delegate?.dockContentView(self, didDrop: urls, on: tile)
-        return true
-    }
 
     private var isDarkAppearance: Bool {
         effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
@@ -330,7 +308,8 @@ public final class DockContentView: NSView {
             magnificationTarget = 0
         }
 
-        let constant = magnificationTarget > magnification
+        let constant =
+            magnificationTarget > magnification
             ? Self.enterRampDuration / Self.rampSettleFactor
             : Self.exitRampDuration / Self.rampSettleFactor
         magnification += (magnificationTarget - magnification) * (1 - exp(-delta / constant))
@@ -369,7 +348,7 @@ public final class DockContentView: NSView {
 
     private func tile(at point: CGPoint) -> DockTile? {
         guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
-              index < snapshot.tiles.count
+            index < snapshot.tiles.count
         else { return nil }
         return snapshot.tiles[index]
     }
@@ -385,6 +364,31 @@ public final class DockContentView: NSView {
             return wasEmpty != isEmpty
         }
         return old.url != tile.url
+    }
+
+}
+
+extension DockContentView {
+    override public func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        dragOperation(for: sender)
+    }
+
+    override public func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        dragOperation(for: sender)
+    }
+
+    override public func draggingExited(_ sender: (any NSDraggingInfo)?) {
+        setDropTarget(nil)
+    }
+
+    override public func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        defer { setDropTarget(nil) }
+        guard let identifier = dropTargetIdentifier,
+            let tile = snapshot.tile(with: identifier),
+            let urls = fileURLs(from: sender), !urls.isEmpty
+        else { return false }
+        delegate?.dockContentView(self, didDrop: urls, on: tile)
+        return true
     }
 
     private func dragOperation(for sender: any NSDraggingInfo) -> NSDragOperation {
@@ -423,6 +427,7 @@ public final class DockContentView: NSView {
             options: [.urlReadingFileURLsOnly: true]
         ) as? [URL]
     }
+
 }
 
 final class DockTileContainerView: NSView {

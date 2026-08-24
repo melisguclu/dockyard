@@ -40,7 +40,8 @@ public final class DockBackdrop {
 
         view.autoresizingMask = []
         borderLayer.backgroundColor = NSColor.clear.cgColor
-        borderLayer.borderColor = self.style == .glass
+        borderLayer.borderColor =
+            self.style == .glass
             ? DockMaterial.glassBorderColor
             : DockMaterial.borderColor
     }
