@@ -185,11 +185,25 @@ That makes minimized windows the second thing the optional Accessibility grant b
 
 ### Observation, and why there is still no timer
 
-Minimizing a window produces no `NSWorkspace` notification, so this is the first state in the app that the workspace centre cannot report. `MinimizedWindowObserver` registers one `AXObserver` per running application on `kAXWindowMiniaturized`, `kAXWindowDeminiaturized`, and `kAXWindowCreated`, and adds its run loop source to the main run loop under `commonModes` so the notifications keep arriving while a tile menu is tracking. The observer set is rebuilt from the same running-applications list that already drives everything else, so an app that launches is registered and an app that exits is torn down without any separate bookkeeping.
+Minimizing a window produces no `NSWorkspace` notification, so this is the first state in the app that the workspace centre cannot report. `MinimizedWindowObserver` registers one `AXObserver` per running application on `kAXWindowMiniaturized` and `kAXWindowDeminiaturized`, and adds its run loop source to the main run loop under `commonModes` so the notifications keep arriving while a tile menu is tracking. The observer set is rebuilt from the same running-applications list that already drives everything else, so an app that launches is registered and an app that exits is torn down without any separate bookkeeping.
 
 The callback is a C function pointer and therefore captures nothing: it recovers the pid from the element with `AXUIElementGetPid`, and the store is reached through an unretained context pointer that is turned back into a reference inside `MainActor.assumeIsolated`. A notification only ever schedules a re-read of the one application it came from, through the same actor-isolated inspector the tile menus use, and one in-flight read per pid is coalesced with a pending flag so a burst of notifications collapses into two reads rather than ten.
 
-Measured on an M1 MacBook Pro with 20 applications running and 8 minimized windows, the observers cost 20 ms of CPU over 45 idle seconds and the round trip from ⌘M to a rendered tile is under a second. Resident memory is unchanged at 37 MB: every window of an application shares one rasterized tile, because the tile is keyed on the application, not on the window.
+Two things had to come *out* of that design before it was quiet, and both are the same mistake the app menu cache made first.
+
+`kAXWindowCreated` looks like it belongs in the notification list and buys nothing: a window is never born minimized, so minimization always arrives as `kAXWindowMiniaturized` regardless. What it costs is not nothing. A harness registering the three notifications across nine applications counted **23 `AXWindowCreated` notifications in 60 idle seconds, all from Cursor**, which creates and destroys windows constantly the way Electron apps do, and every one of them would have driven a full window read of a six-window app for no change. With the notification dropped the same harness counts **zero** notifications over the same 60 seconds.
+
+`update(with:)` re-read every running application on every `NSWorkspace` notification, which is roughly nine reads per app switch and eighteen across the deactivate/activate pair. It now reads an application the first time it is seen and re-reads only the one that *becomes* frontmost, which is the rule `AppMenuStore` already follows and for the same reason: the observers keep everything else current, and the activation re-read exists only to retire a window that was destroyed while minimized. `MinimizedWindowStoreTests` pins both, with the authorization check injected so the tests do not depend on the grant the machine happens to hold.
+
+Measured on an M1 MacBook Pro with nine applications running and eight minimized windows, sampling only the seconds where the pointer was clear of every bar so the magnification display link does not contaminate the number:
+
+| | idle CPU | resident memory |
+|---|---|---|
+| Before the feature | 0.001% | 42 MB |
+| With `kAXWindowCreated` and the full re-read | 0.006% | 42 MB |
+| Shipped | 0.001% | 42 MB |
+
+Resident memory does not move because every window of an application shares one rasterized tile: the tile is keyed on the application, not on the window. Layout does not move either — `DockGeometry.layout` is 0.003 ms at 24 tiles and 0.003 ms at 32 against a 4 ms frame budget, and still 0.005 ms at 64 — which is measured by `LayoutBenchmark`, skipped unless `DOCKYARD_BENCH` is set. The round trip from ⌘M to a rendered tile is under a second.
 
 ### Why the tile is a drawn card and not a thumbnail
 

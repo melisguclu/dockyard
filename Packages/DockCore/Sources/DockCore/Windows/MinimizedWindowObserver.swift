@@ -6,7 +6,6 @@ final class MinimizedWindowObserver {
     static let messagingTimeout: Float = 2
 
     static let notifications = [
-        kAXWindowCreatedNotification,
         kAXWindowMiniaturizedNotification,
         kAXWindowDeminiaturizedNotification,
     ]

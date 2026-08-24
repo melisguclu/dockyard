@@ -7,7 +7,7 @@ public final class MinimizedWindowStore {
     public var onChange: (@MainActor () -> Void)?
 
     public var isAuthorized: Bool {
-        AccessibilityAuthorization.isTrusted
+        authorization()
     }
 
     private struct WindowKey: Hashable {
@@ -16,6 +16,7 @@ public final class MinimizedWindowStore {
     }
 
     private let inspector: any AppMenuInspecting
+    private let authorization: @MainActor () -> Bool
     private let observer = MinimizedWindowObserver()
 
     private var applications: [pid_t: RunningApplicationState] = [:]
@@ -23,10 +24,15 @@ public final class MinimizedWindowStore {
     private var tokensByProcess: [pid_t: [WindowKey: UInt64]] = [:]
     private var refreshTasks: [pid_t: Task<Void, Never>] = [:]
     private var pending: Set<pid_t> = []
+    private var activeProcessIdentifier: pid_t?
     private var nextToken: UInt64 = 0
 
-    public init(inspector: any AppMenuInspecting = AppMenuInspector()) {
+    public init(
+        inspector: any AppMenuInspecting = AppMenuInspector(),
+        authorization: @escaping @MainActor () -> Bool = { AccessibilityAuthorization.isTrusted }
+    ) {
         self.inspector = inspector
+        self.authorization = authorization
     }
 
     deinit {
@@ -69,13 +75,22 @@ public final class MinimizedWindowStore {
             observer.update(with: [])
             windowsByProcess.removeAll()
             tokensByProcess.removeAll()
+            activeProcessIdentifier = nil
             publish()
             return
         }
 
         observer.update(with: live)
-        for processIdentifier in live {
+
+        let active = applications.first { $0.isActive }?.processIdentifier
+        let activationChanged = active != activeProcessIdentifier
+        activeProcessIdentifier = active
+
+        for processIdentifier in live where windowsByProcess[processIdentifier] == nil {
             refresh(processIdentifier)
+        }
+        if activationChanged, let active, windowsByProcess[active] != nil {
+            refresh(active)
         }
         publish()
     }
