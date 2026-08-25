@@ -88,6 +88,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     public func hide() {
         guard isVisible else { return }
         isVisible = false
+        contentView.dismissTileLabel()
         panel.orderOut(nil)
     }
 
@@ -96,6 +97,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
             task.cancel()
         }
         iconTasks.removeAll()
+        contentView.dismissTileLabel()
         contentView.delegate = nil
         panel.orderOut(nil)
         panel.contentView = nil

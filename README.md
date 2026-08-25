@@ -32,6 +32,7 @@ Dockyard is a menu bar agent with no Dock icon of its own. Its status item offer
 - The Trash's own empty and full artwork, and Calendar showing today's weekday and date
 - Running indicators, hidden-app dimming, and the Trash tile with its empty and full states
 - Click to launch or activate, right-click for Show in Finder / Hide / Quit / Force Quit
+- Hover a tile for its name, in the Dock's own balloon with the tail pointing back at the icon
 - Right-click a running app for its own windows, commands, and recent documents — New Window, New Incognito Window, Next Track, Xcode's recent projects — read from the app's menu bar (optional, needs Accessibility)
 - A tile for every minimized window, between the separator and the Trash, like the real Dock; click one to bring that window back (optional, needs Accessibility)
 - Drag files onto an app tile to open them with that app

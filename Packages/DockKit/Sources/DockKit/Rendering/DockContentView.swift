@@ -25,17 +25,19 @@ public final class DockContentView: NSView {
     public private(set) var snapshot: DockSnapshot = .empty
 
     private let tileMenu = DockTileMenuController()
+    private let tileLabel = DockTileLabelController()
     public private(set) var currentLayout: DockLayout = .empty
 
     private let backdrop = DockBackdrop()
     private let tileContainer = DockTileContainerView()
     private let tileHost = CALayer()
-    private var tileLayers: [DockTileID: DockTileLayer] = [:]
+    var tileLayers: [DockTileID: DockTileLayer] = [:]
     private var cursor: CGPoint?
     private var pressedIdentifier: DockTileID?
     private var dimmedIdentifier: DockTileID?
     private var menuIdentifier: DockTileID?
-    private var dropTargetIdentifier: DockTileID?
+    private var labelIdentifier: DockTileID?
+    var dropTargetIdentifier: DockTileID?
     private var trackingRegion: NSTrackingArea?
     private var frameLink: CADisplayLink?
     private var magnification: CGFloat = 0
@@ -113,6 +115,10 @@ public final class DockContentView: NSView {
         }
 
         relayout()
+
+        if labelIdentifier != nil {
+            updateTileLabel(at: pointerLocation())
+        }
     }
 
     public func setIcon(_ image: CGImage?, for identifier: DockTileID) {
@@ -191,6 +197,7 @@ public final class DockContentView: NSView {
         super.viewDidMoveToWindow()
         if window == nil {
             stopFrameLink()
+            dismissTileLabel()
             magnification = 0
             magnificationTarget = 0
             cursor = nil
@@ -229,6 +236,53 @@ public final class DockContentView: NSView {
         return self
     }
 
+    private var isDarkAppearance: Bool {
+        effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+
+    private var interactiveRect: CGRect {
+        guard !currentLayout.barRect.isEmpty else { return .zero }
+        return currentLayout.tileFrames.reduce(currentLayout.barRect) { $0.union($1) }
+    }
+
+    private func location(of event: NSEvent) -> CGPoint {
+        convert(event.locationInWindow, from: nil)
+    }
+
+    private var magnificationAvailable: Bool {
+        snapshot.appearance.magnificationEnabled
+            && snapshot.appearance.effectiveLargeSize > snapshot.appearance.tileSize
+    }
+
+    public static let enterRampDuration: CFTimeInterval = 0.20
+    public static let exitRampDuration: CFTimeInterval = 0.16
+    private static let rampSettleFactor: CFTimeInterval = 3
+    private static let rampEpsilon: CGFloat = 0.002
+    private static let maximumFrameDelta: CFTimeInterval = 0.1
+    private static let settleTicks = 12
+
+    func tile(at point: CGPoint) -> DockTile? {
+        guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
+            index < snapshot.tiles.count
+        else { return nil }
+        return snapshot.tiles[index]
+    }
+
+    private func requestIcon(for tile: DockTile) {
+        guard tile.occupiesTileSlot else { return }
+        delegate?.dockContentView(self, needsIconFor: tile, pixelSize: iconPixelSize)
+    }
+
+    private func iconNeedsRefresh(_ tile: DockTile, previous: DockSnapshot) -> Bool {
+        guard let old = previous.tile(with: tile.id) else { return false }
+        if case .trash(let wasEmpty) = old.kind, case .trash(let isEmpty) = tile.kind {
+            return wasEmpty != isEmpty
+        }
+        return old.url != tile.url
+    }
+}
+
+extension DockContentView {
     override public func mouseEntered(with event: NSEvent) {
         startFrameLink()
     }
@@ -239,6 +293,7 @@ public final class DockContentView: NSView {
 
     override public func mouseExited(with event: NSEvent) {
         magnificationTarget = 0
+        dismissTileLabel()
         startFrameLink()
     }
 
@@ -275,26 +330,8 @@ public final class DockContentView: NSView {
         }
     }
 
-    private var isDarkAppearance: Bool {
-        effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
-    }
-
-    private var interactiveRect: CGRect {
-        guard !currentLayout.barRect.isEmpty else { return .zero }
-        return currentLayout.tileFrames.reduce(currentLayout.barRect) { $0.union($1) }
-    }
-
-    private func location(of event: NSEvent) -> CGPoint {
-        convert(event.locationInWindow, from: nil)
-    }
-
-    private var magnificationAvailable: Bool {
-        snapshot.appearance.magnificationEnabled
-            && snapshot.appearance.effectiveLargeSize > snapshot.appearance.tileSize
-    }
-
     private func startFrameLink() {
-        guard frameLink == nil, magnificationAvailable, window != nil else { return }
+        guard frameLink == nil, window != nil else { return }
         let link = displayLink(target: self, selector: #selector(stepFrame(_:)))
         link.add(to: .main, forMode: .common)
         lastTick = CACurrentMediaTime()
@@ -312,14 +349,19 @@ public final class DockContentView: NSView {
         let delta = (now - lastTick).clamped(to: 0...Self.maximumFrameDelta)
         lastTick = now
 
+        let pointer = pointerLocation()
+        let hovering = pointer.map(interactiveRect.contains) ?? false
+
         if menuIdentifier != nil {
             magnificationTarget = 1
-        } else if magnificationAvailable, let point = pointerLocation(), interactiveRect.contains(point) {
-            cursor = point
+        } else if magnificationAvailable, hovering, let pointer {
+            cursor = pointer
             magnificationTarget = 1
         } else {
             magnificationTarget = 0
         }
+
+        updateTileLabel(at: hovering ? pointer : nil)
 
         let constant =
             magnificationTarget > magnification
@@ -352,95 +394,37 @@ public final class DockContentView: NSView {
         return convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
     }
 
-    public static let enterRampDuration: CFTimeInterval = 0.20
-    public static let exitRampDuration: CFTimeInterval = 0.16
-    private static let rampSettleFactor: CFTimeInterval = 3
-    private static let rampEpsilon: CGFloat = 0.002
-    private static let maximumFrameDelta: CFTimeInterval = 0.1
-    private static let settleTicks = 12
-
-    private func tile(at point: CGPoint) -> DockTile? {
-        guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
-            index < snapshot.tiles.count
-        else { return nil }
-        return snapshot.tiles[index]
+    public func dismissTileLabel() {
+        labelIdentifier = nil
+        tileLabel.dismiss()
     }
 
-    private func requestIcon(for tile: DockTile) {
-        guard tile.occupiesTileSlot else { return }
-        delegate?.dockContentView(self, needsIconFor: tile, pixelSize: iconPixelSize)
-    }
-
-    private func iconNeedsRefresh(_ tile: DockTile, previous: DockSnapshot) -> Bool {
-        guard let old = previous.tile(with: tile.id) else { return false }
-        if case .trash(let wasEmpty) = old.kind, case .trash(let isEmpty) = tile.kind {
-            return wasEmpty != isEmpty
+    private func updateTileLabel(at point: CGPoint?) {
+        guard menuIdentifier == nil, dropTargetIdentifier == nil, let point, let window,
+            let index = DockGeometry.hitIndex(in: currentLayout, at: point), index < snapshot.tiles.count
+        else {
+            dismissTileLabel()
+            return
         }
-        return old.url != tile.url
-    }
 
-}
-
-extension DockContentView {
-    override public func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        dragOperation(for: sender)
-    }
-
-    override public func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
-        dragOperation(for: sender)
-    }
-
-    override public func draggingExited(_ sender: (any NSDraggingInfo)?) {
-        setDropTarget(nil)
-    }
-
-    override public func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        defer { setDropTarget(nil) }
-        guard let identifier = dropTargetIdentifier,
-            let tile = snapshot.tile(with: identifier),
-            let urls = fileURLs(from: sender), !urls.isEmpty
-        else { return false }
-        delegate?.dockContentView(self, didDrop: urls, on: tile)
-        return true
-    }
-
-    private func dragOperation(for sender: any NSDraggingInfo) -> NSDragOperation {
-        let point = convert(sender.draggingLocation, from: nil)
-        guard let tile = tile(at: point), canAcceptDrop(on: tile) else {
-            setDropTarget(nil)
-            return []
+        let tile = snapshot.tiles[index]
+        guard tile.isInteractive, !tile.label.isEmpty else {
+            dismissTileLabel()
+            return
         }
-        setDropTarget(tile.id)
-        return .copy
-    }
 
-    private func canAcceptDrop(on tile: DockTile) -> Bool {
-        switch tile.kind {
-        case .application:
-            return true
-        default:
-            return false
-        }
+        labelIdentifier = tile.id
+        tileLabel.present(
+            DockTileLabelRequest(
+                identifier: tile.id,
+                text: tile.label,
+                anchor: window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil)),
+                orientation: snapshot.appearance.orientation,
+                screen: window.screen?.visibleFrame ?? window.frame,
+                appearance: effectiveAppearance
+            )
+        )
     }
-
-    private func setDropTarget(_ identifier: DockTileID?) {
-        guard dropTargetIdentifier != identifier else { return }
-        if let previous = dropTargetIdentifier {
-            tileLayers[previous]?.setHighlighted(false)
-        }
-        dropTargetIdentifier = identifier
-        if let identifier {
-            tileLayers[identifier]?.setHighlighted(true)
-        }
-    }
-
-    private func fileURLs(from sender: any NSDraggingInfo) -> [URL]? {
-        sender.draggingPasteboard.readObjects(
-            forClasses: [NSURL.self],
-            options: [.urlReadingFileURLsOnly: true]
-        ) as? [URL]
-    }
-
 }
 
 extension DockContentView {
@@ -480,6 +464,7 @@ extension DockContentView {
 
     private func beginMenuSession(for identifier: DockTileID, at point: CGPoint) {
         menuIdentifier = identifier
+        dismissTileLabel()
         setPressed(identifier)
         guard magnificationAvailable else { return }
         cursor = point
@@ -492,9 +477,4 @@ extension DockContentView {
         setPressed(nil)
         startFrameLink()
     }
-}
-
-final class DockTileContainerView: NSView {
-    override func hitTest(_ point: NSPoint) -> NSView? { nil }
-    override var isOpaque: Bool { false }
 }

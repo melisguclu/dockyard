@@ -30,9 +30,13 @@ final class DockMenuBackdrop {
     }
 
     func apply(balloon: DockMenuBalloon, metrics: DockMenuMetrics) {
-        let bounds = CGRect(origin: .zero, size: balloon.panelFrame.size)
-        let path = DockMenuLayout.path(for: balloon, metrics: metrics)
+        apply(
+            path: DockMenuLayout.path(for: balloon, metrics: metrics),
+            bounds: CGRect(origin: .zero, size: balloon.panelFrame.size)
+        )
+    }
 
+    func apply(path: CGPath, bounds: CGRect) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 

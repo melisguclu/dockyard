@@ -45,6 +45,54 @@ public struct DockMenuMetrics: Sendable, Equatable {
         borderWidth: 1
     )
 
+    public var balloon: DockBalloonMetrics {
+        DockBalloonMetrics(
+            cornerRadius: cornerRadius,
+            tailLength: tailLength,
+            tailBaseHalfWidth: tailBaseHalfWidth,
+            tailBaseFillet: tailBaseFillet,
+            tailApexDepth: tailApexDepth,
+            tailTipRadius: tailTipRadius,
+            tileGap: tileGap,
+            screenInset: screenInset,
+            minimumWidth: minimumWidth
+        )
+    }
+}
+
+public struct DockBalloonMetrics: Sendable, Equatable {
+    public var cornerRadius: CGFloat
+    public var tailLength: CGFloat
+    public var tailBaseHalfWidth: CGFloat
+    public var tailBaseFillet: CGFloat
+    public var tailApexDepth: CGFloat
+    public var tailTipRadius: CGFloat
+    public var tileGap: CGFloat
+    public var screenInset: CGFloat
+    public var minimumWidth: CGFloat
+
+    public init(
+        cornerRadius: CGFloat,
+        tailLength: CGFloat,
+        tailBaseHalfWidth: CGFloat,
+        tailBaseFillet: CGFloat,
+        tailApexDepth: CGFloat,
+        tailTipRadius: CGFloat,
+        tileGap: CGFloat,
+        screenInset: CGFloat,
+        minimumWidth: CGFloat
+    ) {
+        self.cornerRadius = cornerRadius
+        self.tailLength = tailLength
+        self.tailBaseHalfWidth = tailBaseHalfWidth
+        self.tailBaseFillet = tailBaseFillet
+        self.tailApexDepth = tailApexDepth
+        self.tailTipRadius = tailTipRadius
+        self.tileGap = tileGap
+        self.screenInset = screenInset
+        self.minimumWidth = minimumWidth
+    }
+
     var tailClearance: CGFloat {
         cornerRadius + tailBaseHalfWidth + tailBaseFillet
     }
@@ -66,6 +114,22 @@ public enum DockMenuLayout {
         orientation: DockOrientation,
         screen: CGRect,
         metrics: DockMenuMetrics = .current
+    ) -> DockMenuBalloon {
+        balloon(
+            contentSize: contentSize,
+            anchor: anchor,
+            orientation: orientation,
+            screen: screen,
+            metrics: metrics.balloon
+        )
+    }
+
+    public static func balloon(
+        contentSize: CGSize,
+        anchor: CGRect,
+        orientation: DockOrientation,
+        screen: CGRect,
+        metrics: DockBalloonMetrics
     ) -> DockMenuBalloon {
         let body = CGSize(
             width: max(contentSize.width, metrics.minimumWidth),
@@ -138,6 +202,10 @@ public enum DockMenuLayout {
     }
 
     public static func path(for balloon: DockMenuBalloon, metrics: DockMenuMetrics = .current) -> CGPath {
+        path(for: balloon, metrics: metrics.balloon)
+    }
+
+    public static func path(for balloon: DockMenuBalloon, metrics: DockBalloonMetrics) -> CGPath {
         let body = balloon.bodyRect.size
         switch balloon.orientation {
         case .bottom:
@@ -166,7 +234,7 @@ public enum DockMenuLayout {
     private static func canonicalPath(
         bodySize: CGSize,
         tailAlong: CGFloat,
-        metrics: DockMenuMetrics
+        metrics: DockBalloonMetrics
     ) -> CGPath {
         let path = CGMutablePath()
         let radius = min(metrics.cornerRadius, min(bodySize.width, bodySize.height) / 2)
@@ -217,6 +285,10 @@ public enum DockMenuLayout {
     }
 
     public static func tailBounds(for balloon: DockMenuBalloon, metrics: DockMenuMetrics = .current) -> CGRect {
+        tailBounds(for: balloon, metrics: metrics.balloon)
+    }
+
+    public static func tailBounds(for balloon: DockMenuBalloon, metrics: DockBalloonMetrics) -> CGRect {
         let clearance = metrics.tailBaseHalfWidth + metrics.tailBaseFillet
         let size = balloon.panelFrame.size
         switch balloon.orientation {
@@ -244,7 +316,7 @@ public enum DockMenuLayout {
         }
     }
 
-    private static func clampedOrigin(
+    static func clampedOrigin(
         preferred: CGFloat,
         length: CGFloat,
         lower: CGFloat,
@@ -256,7 +328,7 @@ public enum DockMenuLayout {
         return min(max(preferred, minimum), maximum)
     }
 
-    private static func tailAlong(preferred: CGFloat, span: CGFloat, metrics: DockMenuMetrics) -> CGFloat {
+    private static func tailAlong(preferred: CGFloat, span: CGFloat, metrics: DockBalloonMetrics) -> CGFloat {
         let clearance = min(metrics.tailClearance, span / 2)
         return min(max(preferred, clearance), span - clearance)
     }
