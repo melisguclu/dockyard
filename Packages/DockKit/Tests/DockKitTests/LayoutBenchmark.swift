@@ -69,6 +69,60 @@ struct LayoutBenchmark {
         return (samples[passes / 2], samples[passes * 99 / 100])
     }
 
+    @Test("Placing the hover label costs a fraction of a layout pass")
+    func labelCost() {
+        let tiles = tiles(applications: 23, windows: 8)
+        let appearance = DockAppearance(tileSize: 30, largeSize: 48, magnificationEnabled: true)
+        let panel = CGSize(width: 2560, height: 120)
+        let layout = DockGeometry.layout(
+            DockLayoutInput(
+                tiles: tiles,
+                appearance: appearance,
+                metrics: .current,
+                panelSize: panel,
+                cursor: CGPoint(x: 900, y: 40),
+                magnificationAmount: 1,
+                reservedStrip: nil
+            )
+        )
+        let screen = CGRect(x: 0, y: 0, width: 2560, height: 1440)
+        let passes = 20_000
+
+        var placement: [Double] = []
+        placement.reserveCapacity(passes)
+        for pass in 0..<passes {
+            let point = CGPoint(x: 200 + Double(pass % 1200), y: 40)
+            let start = CFAbsoluteTimeGetCurrent()
+            if let index = DockGeometry.hitIndex(in: layout, at: point), index < tiles.count {
+                _ = DockTileLabelLayout.balloon(
+                    width: 149,
+                    anchor: layout.tileFrames[index],
+                    orientation: .bottom,
+                    screen: screen
+                )
+            }
+            placement.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+        }
+
+        var measurement: [Double] = []
+        measurement.reserveCapacity(passes)
+        for pass in 0..<passes {
+            let title = "Application \(pass % 64)"
+            let start = CFAbsoluteTimeGetCurrent()
+            _ = DockTileLabelLayout.width(
+                textWidth: DockTileLabelTextView.width(of: title, metrics: .current)
+            )
+            measurement.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
+        }
+
+        placement.sort()
+        measurement.sort()
+        print(String(format: "hit test + balloon, every frame   p50 %.4f ms  p99 %.4f ms",
+                     placement[passes / 2], placement[passes * 99 / 100]))
+        print(String(format: "text measurement, once per tile   p50 %.4f ms  p99 %.4f ms",
+                     measurement[passes / 2], measurement[passes * 99 / 100]))
+    }
+
     @Test("A bar with minimized windows lays out inside the frame budget")
     func layoutCost() {
         let before = measure(tiles(applications: 23, windows: 0))

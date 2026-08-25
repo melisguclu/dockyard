@@ -49,6 +49,41 @@ number that matters is the second line: no frame that had something new to show 
 late. Before magnification was moved onto a display link the same sweep measured a mean of
 46.4 fps with 22.9% of vsyncs showing stale geometry.
 
+Hover labels, M1 MacBook Pro, macOS 26.5, release build, 120 Hz built-in display, 31 tiles.
+The pointer is swept across the bar by a script at 500 pt/s and never stops, which is harsher
+than the natural sweep the magnification budget is quoted against; the number that means
+something is the difference between the columns of a single run, not the absolute value,
+because run-to-run variance from the rest of the machine is larger than the effect measured:
+
+```
+                                        run A     run B
+Sweep, label never shown                 7.5%       -
+Sweep, label shown once, never updated   7.5%       -
+Sweep, label live, window resized       10.1%     12.4%
+Sweep, label live, fixed stage           9.1%      9.3%
+Pointer resting on a tile, label up      0.1%
+Pointer away from every bar              0.1%
+Resident memory                          39 MB
+```
+
+The same pair measured again later, with the rest of the machine busier, read 13.1% for the
+build without the label and 17.1% for the one with it: the absolute numbers move by a third
+between runs, the ratio between the two builds does not move much, and both builds sit at
+0.0% once the pointer stops. Only measurements taken inside one run, alternating builds, are
+worth quoting.
+
+So a live label costs about 1.6 points of CPU on a bar that is being swept continuously, and
+nothing at all once the pointer stops. Roughly a point of that was bought back by making the
+label's window a fixed-size stage: the first version resized the window on every tile change,
+about fifteen times a second during a sweep, and a window resize behind an `NSVisualEffectView`
+reallocates a surface and rebuilds a backdrop group. Placement itself is free — a hit test plus
+the balloon geometry measures 0.001 ms against a 4 ms frame, and the title is measured once per
+tile rather than once per frame (0.016 ms) — which is why the remaining cost is compositing a
+translucent window that sits over animating icons, and why a label that never updates costs the
+same as one that does.
+
+Reproduce the placement numbers with `DOCKYARD_BENCH=1 swift test --package-path Packages/DockKit -c release --filter labelCost`.
+
 Idle wakeups still need a `powermetrics` run on real hardware; that is a release-checklist
 item, not measured yet.
 
@@ -65,7 +100,8 @@ item, not measured yet.
 9. **Controller pooling.** A disappearing display's controller is retained for two minutes rather than deallocated, so closing and reopening a lid reuses a warm layer tree.
 10. **Lazy settings.** The SwiftUI settings window and its dependencies are not instantiated until the user opens it. SwiftUI's first-use cost should not be paid by users who never open the window.
 11. **Value types in the snapshot.** Nothing reference-counted crosses the actor boundary, so there is no retain and release traffic on the main thread and the snapshot is free to copy.
-12. **Bounded caches.** The icon cache is an `NSCache` with an explicit `totalCostLimit` in bytes, so memory pressure evicts icons, which are cheap to regenerate, rather than the process growing.
+12. **The hover label's window is moved, never resized.** It is a fixed-size stage as wide as the longest title the app will draw, with the balloon centred inside it, so a name change costs a view frame and a path instead of a window resize. The pointer's own tracking is the display link that magnification already runs; the label is presented from the same per-vsync hit test and inherits the rule above, so a resting pointer with a label on screen still costs nothing.
+13. **Bounded caches.** The icon cache is an `NSCache` with an explicit `totalCostLimit` in bytes, so memory pressure evicts icons, which are cheap to regenerate, rather than the process growing.
 
 ## Measuring
 
