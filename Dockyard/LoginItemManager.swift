@@ -16,7 +16,7 @@ final class LoginItemManager {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            DockLog.app.error("Login item update failed: \(error.localizedDescription, privacy: .public)")
+            DockLog.app.error("Login item update failed: \(error.localizedDescription, privacy: .private)")
         }
     }
 }

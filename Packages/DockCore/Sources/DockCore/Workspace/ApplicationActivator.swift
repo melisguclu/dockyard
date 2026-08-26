@@ -41,7 +41,7 @@ public struct ApplicationActivator {
         configuration.activates = true
         NSWorkspace.shared.open(urls, withApplicationAt: applicationURL, configuration: configuration) { _, error in
             if let error {
-                DockLog.workspace.error("Failed to open files: \(error.localizedDescription, privacy: .public)")
+                DockLog.workspace.error("Failed to open files: \(error.localizedDescription, privacy: .private)")
             }
         }
     }
@@ -108,7 +108,7 @@ public struct ApplicationActivator {
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
             if let error {
-                DockLog.workspace.error("Failed to launch application: \(error.localizedDescription, privacy: .public)")
+                DockLog.workspace.error("Failed to launch application: \(error.localizedDescription, privacy: .private)")
             }
         }
     }
