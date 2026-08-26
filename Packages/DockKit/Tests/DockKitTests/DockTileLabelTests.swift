@@ -46,18 +46,41 @@ struct DockTileLabelTests {
         #expect(abs(result.panelFrame.minX + result.tailAlong - anchor.midX) < 0.001)
     }
 
-    @Test("A side dock puts the tail on the edge facing the tile")
+    @Test("A side dock drops the tail and keeps the body where the tail put it")
     func sidePlacement() {
+        let reach = metrics.balloon.tileGap + metrics.balloon.tailLength
         let anchor = CGRect(x: 6, y: 500, width: 54, height: 54)
         let left = balloon(anchor: anchor, orientation: .left)
-        #expect(left.panelFrame.minX == anchor.maxX + metrics.balloon.tileGap)
-        #expect(left.bodyRect.minX == metrics.balloon.tailLength)
-        #expect(abs(left.panelFrame.minY + left.tailAlong - anchor.midY) < 0.001)
+        #expect(left.panelFrame.minX == anchor.maxX + reach)
+        #expect(left.panelFrame.width == 149)
+        #expect(left.bodyRect == CGRect(origin: .zero, size: left.panelFrame.size))
 
         let mirrored = CGRect(x: screen.maxX - 60, y: 500, width: 54, height: 54)
         let right = balloon(anchor: mirrored, orientation: .right)
-        #expect(right.panelFrame.maxX == mirrored.minX - metrics.balloon.tileGap)
-        #expect(right.bodyRect.minX == 0)
+        #expect(right.panelFrame.maxX == mirrored.minX - reach)
+        #expect(right.bodyRect == CGRect(origin: .zero, size: right.panelFrame.size))
+    }
+
+    @Test("A side dock outline is the plain capsule the Dock draws there")
+    func sideOutline() {
+        for orientation in [DockOrientation.left, .right] {
+            let result = balloon(
+                anchor: CGRect(x: 6, y: 500, width: 54, height: 54),
+                orientation: orientation
+            )
+            let path = DockMenuLayout.path(for: result, metrics: metrics.balloon(for: orientation))
+            let box = path.boundingBox
+            #expect(abs(box.minX) < 0.001)
+            #expect(abs(box.minY) < 0.001)
+            #expect(abs(box.width - result.panelFrame.width) < 0.001)
+            #expect(abs(box.height - result.panelFrame.height) < 0.001)
+            #expect(path == CGPath(
+                roundedRect: CGRect(origin: .zero, size: result.panelFrame.size),
+                cornerWidth: metrics.height / 2,
+                cornerHeight: metrics.height / 2,
+                transform: nil
+            ))
+        }
     }
 
     @Test("A label at either end of the screen stays on screen, tail clear of the corners")

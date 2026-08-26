@@ -114,7 +114,7 @@ public final class DockTileLabelController {
         CATransaction.setDisableActions(true)
         balloonView.frame = CGRect(origin: inset, size: balloon.panelFrame.size)
         backdrop.apply(
-            path: DockMenuLayout.path(for: balloon, metrics: metrics.balloon),
+            path: DockMenuLayout.path(for: balloon, metrics: metrics.balloon(for: request.orientation)),
             bounds: bounds
         )
         text.frame = balloon.contentFrame
@@ -128,7 +128,7 @@ public final class DockTileLabelController {
 
     private func stageSize(for orientation: DockOrientation) -> CGSize {
         let body = metrics.maximumWidth
-        let tail = metrics.balloon.tailLength
+        let tail = metrics.balloon(for: orientation).tailLength
         switch orientation {
         case .bottom:
             return CGSize(width: body, height: metrics.height + tail)

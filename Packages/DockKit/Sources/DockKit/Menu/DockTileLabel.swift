@@ -23,6 +23,14 @@ public struct DockTileLabelMetrics: Sendable, Equatable {
         self.balloon = balloon
     }
 
+    public func balloon(for orientation: DockOrientation) -> DockBalloonMetrics {
+        guard orientation.isVertical else { return balloon }
+        var untailed = balloon
+        untailed.tileGap += untailed.tailLength
+        untailed.tailLength = 0
+        return untailed
+    }
+
     public static let current = DockTileLabelMetrics(
         fontSize: 14,
         height: 26,
@@ -60,7 +68,7 @@ public enum DockTileLabelLayout {
             anchor: anchor,
             orientation: orientation,
             screen: screen,
-            metrics: metrics.balloon
+            metrics: metrics.balloon(for: orientation)
         )
     }
 }

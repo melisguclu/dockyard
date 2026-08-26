@@ -207,6 +207,15 @@ public enum DockMenuLayout {
 
     public static func path(for balloon: DockMenuBalloon, metrics: DockBalloonMetrics) -> CGPath {
         let body = balloon.bodyRect.size
+        guard metrics.tailLength > 0 else {
+            let radius = min(metrics.cornerRadius, min(body.width, body.height) / 2)
+            return CGPath(
+                roundedRect: CGRect(origin: .zero, size: balloon.panelFrame.size),
+                cornerWidth: radius,
+                cornerHeight: radius,
+                transform: nil
+            )
+        }
         switch balloon.orientation {
         case .bottom:
             return canonicalPath(bodySize: body, tailAlong: balloon.tailAlong, metrics: metrics)
