@@ -143,50 +143,6 @@ public enum DockGeometry {
         return lengths.reduce(0, +) + gaps + 2 * barPadding(appearance, metrics)
     }
 
-    public static func panelThickness(
-        _ appearance: DockAppearance,
-        _ metrics: DockMetrics,
-        reservedStrip: CGFloat? = nil
-    ) -> CGFloat {
-        let padding = barPadding(appearance, metrics)
-        let margin = screenEdgeMargin(appearance, metrics, reservedStrip: reservedStrip)
-        let magnified = margin + padding + appearance.effectiveLargeSize + padding
-        return max(margin + barThickness(appearance, metrics), magnified)
-    }
-
-    public static func panelFrame(
-        screenFrame: CGRect,
-        appearance: DockAppearance,
-        metrics: DockMetrics,
-        reservedStrip: CGFloat? = nil
-    ) -> CGRect {
-        let thickness = panelThickness(appearance, metrics, reservedStrip: reservedStrip)
-        switch appearance.orientation {
-        case .bottom:
-            return CGRect(
-                x: screenFrame.minX,
-                y: screenFrame.minY,
-                width: screenFrame.width,
-                height: min(thickness, screenFrame.height)
-            )
-        case .left:
-            return CGRect(
-                x: screenFrame.minX,
-                y: screenFrame.minY,
-                width: min(thickness, screenFrame.width),
-                height: screenFrame.height
-            )
-        case .right:
-            let width = min(thickness, screenFrame.width)
-            return CGRect(
-                x: screenFrame.maxX - width,
-                y: screenFrame.minY,
-                width: width,
-                height: screenFrame.height
-            )
-        }
-    }
-
     public static func layout(_ input: DockLayoutInput) -> DockLayout {
         let appearance = input.appearance
         let metrics = input.metrics

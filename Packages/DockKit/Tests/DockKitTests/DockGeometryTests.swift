@@ -72,19 +72,147 @@ struct DockGeometryTests {
         #expect(full == tile)
     }
 
-    @Test("The panel spans the bottom edge of its own display")
+    @Test("The panel sits on the bottom edge of its own display, centred on the bar")
     func panelFrameBottom() {
+        let tiles = TileFactory.applications(5)
         for screen in [Displays.builtIn, Displays.leftOfBuiltIn, Displays.aboveBuiltIn] {
             let frame = DockGeometry.panelFrame(
                 screenFrame: screen,
+                tiles: tiles,
                 appearance: plain,
                 metrics: metrics
             )
-            #expect(frame.minX == screen.minX)
             #expect(frame.minY == screen.minY)
-            #expect(frame.width == screen.width)
+            #expect(abs(frame.midX - screen.midX) < 0.001)
+            #expect(frame.width == DockGeometry.barLength(tiles: tiles, appearance: plain, metrics: metrics))
             #expect(frame.height == DockGeometry.panelThickness(plain, metrics))
         }
+    }
+
+    @Test("Without magnification the panel is nothing but the bar")
+    func panelHugsTheBarAtRest() {
+        let tiles = TileFactory.applications(8) + [TileFactory.separator, TileFactory.trash]
+        let bar = DockGeometry.barLength(tiles: tiles, appearance: appearance, metrics: metrics)
+        let margin = DockGeometry.screenEdgeMargin(appearance, metrics)
+
+        let resting = DockGeometry.panelFrame(
+            screenFrame: Displays.builtIn,
+            tiles: tiles,
+            appearance: appearance,
+            metrics: metrics,
+            extent: .resting
+        )
+        #expect(resting.width == bar)
+        #expect(resting.height == margin + DockGeometry.barThickness(appearance, metrics))
+        #expect(resting.width < Displays.builtIn.width)
+
+        let layout = DockGeometry.layout(
+            input(tiles: tiles, appearance: appearance, panelSize: resting.size)
+        )
+        #expect(abs(layout.barRect.width - bar) < 0.001)
+        #expect(layout.barRect.minX == 0)
+        #expect(layout.barRect.maxY == resting.height)
+    }
+
+    @Test("A resting and a magnified panel put the bar in the same place on screen")
+    func extentsAgreeOnTheBarPosition() {
+        let tiles = TileFactory.applications(8) + [TileFactory.separator, TileFactory.trash]
+        for orientation in [DockOrientation.bottom, .left, .right] {
+            let candidate = DockAppearance(
+                tileSize: 48,
+                largeSize: 128,
+                magnificationEnabled: true,
+                orientation: orientation
+            )
+            var origins: [CGPoint] = []
+            for extent in [DockPanelExtent.resting, .magnified] {
+                let frame = DockGeometry.panelFrame(
+                    screenFrame: Displays.leftOfBuiltIn,
+                    tiles: tiles,
+                    appearance: candidate,
+                    metrics: metrics,
+                    extent: extent
+                )
+                let layout = DockGeometry.layout(
+                    input(tiles: tiles, appearance: candidate, panelSize: frame.size)
+                )
+                origins.append(
+                    CGPoint(x: frame.minX + layout.barRect.minX, y: frame.minY + layout.barRect.minY)
+                )
+            }
+            #expect(abs(origins[0].x - origins[1].x) < 0.001)
+            #expect(abs(origins[0].y - origins[1].y) < 0.001)
+        }
+    }
+
+    @Test("A magnified panel holds the longest bar magnification can produce")
+    func panelHoldsTheMagnifiedBar() {
+        let tiles = TileFactory.applications(12) + [TileFactory.separator, TileFactory.trash]
+        let panelSize = CGSize(width: 4000, height: 200)
+        let stage = DockGeometry.panelLength(
+            tiles: tiles,
+            appearance: appearance,
+            metrics: metrics,
+            extent: .magnified
+        )
+        let bar = DockGeometry.barLength(tiles: tiles, appearance: appearance, metrics: metrics)
+
+        var widest: CGFloat = 0
+        var leftmost: CGFloat = .greatestFiniteMagnitude
+        var rightmost: CGFloat = 0
+        for step in 0...400 {
+            let x = (panelSize.width - bar) / 2 + bar * CGFloat(step) / 400
+            let layout = DockGeometry.layout(
+                input(tiles: tiles, appearance: appearance, panelSize: panelSize, cursor: CGPoint(x: x, y: 20))
+            )
+            widest = max(widest, layout.barRect.width)
+            leftmost = min(leftmost, layout.barRect.minX)
+            rightmost = max(rightmost, layout.barRect.maxX)
+        }
+
+        #expect(widest > bar)
+        #expect(stage >= widest)
+        #expect(stage >= rightmost - leftmost)
+    }
+
+    @Test("Magnification headroom is zero when magnification is off")
+    func headroomWithoutMagnification() {
+        let tiles = TileFactory.applications(5)
+        #expect(
+            DockGeometry.magnificationHeadroom(tiles: tiles, appearance: plain, metrics: metrics) == 0
+        )
+        #expect(
+            DockGeometry.panelLength(tiles: tiles, appearance: plain, metrics: metrics, extent: .magnified)
+                == DockGeometry.barLength(tiles: tiles, appearance: plain, metrics: metrics)
+        )
+    }
+
+    @Test("A short dock never reserves more headroom than its tiles can grow")
+    func headroomIsBoundedByTheTileCount() {
+        let tiles = TileFactory.applications(2)
+        let maximum = MagnificationCurve.maximumScale(
+            tileSize: appearance.tileSize,
+            largeSize: appearance.effectiveLargeSize
+        )
+        let ceiling = 2 * appearance.tileSize * (maximum - 1)
+        #expect(
+            DockGeometry.magnificationHeadroom(tiles: tiles, appearance: appearance, metrics: metrics)
+                <= ceiling
+        )
+    }
+
+    @Test("A panel never outgrows its display")
+    func panelIsCappedByTheDisplay() {
+        let tiles = TileFactory.applications(60)
+        let frame = DockGeometry.panelFrame(
+            screenFrame: Displays.builtIn,
+            tiles: tiles,
+            appearance: appearance,
+            metrics: metrics,
+            extent: .magnified
+        )
+        #expect(frame.width == Displays.builtIn.width)
+        #expect(frame.minX == Displays.builtIn.minX)
     }
 
     @Test("The panel is tall enough for a fully magnified tile")
@@ -99,21 +227,29 @@ struct DockGeometryTests {
 
     @Test("A left or right dock hugs the correct edge")
     func panelFrameVertical() {
+        let tiles = TileFactory.applications(5)
+        let vertical = DockAppearance(orientation: .left)
+        let bar = DockGeometry.barLength(tiles: tiles, appearance: vertical, metrics: metrics)
+
         let left = DockGeometry.panelFrame(
             screenFrame: Displays.leftOfBuiltIn,
-            appearance: DockAppearance(orientation: .left),
+            tiles: tiles,
+            appearance: vertical,
             metrics: metrics
         )
         #expect(left.minX == Displays.leftOfBuiltIn.minX)
-        #expect(left.height == Displays.leftOfBuiltIn.height)
+        #expect(left.height == bar)
+        #expect(abs(left.midY - Displays.leftOfBuiltIn.midY) < 0.001)
 
         let right = DockGeometry.panelFrame(
             screenFrame: Displays.leftOfBuiltIn,
+            tiles: tiles,
             appearance: DockAppearance(orientation: .right),
             metrics: metrics
         )
         #expect(right.maxX == Displays.leftOfBuiltIn.maxX)
-        #expect(right.height == Displays.leftOfBuiltIn.height)
+        #expect(right.height == bar)
+        #expect(abs(right.midY - Displays.leftOfBuiltIn.midY) < 0.001)
     }
 
     @Test("At rest the tiles are contiguous, centred, and sit on the bar baseline")
@@ -432,6 +568,7 @@ struct DockGeometryTests {
 
         let frame = DockGeometry.panelFrame(
             screenFrame: Displays.builtIn,
+            tiles: tiles,
             appearance: candidate,
             metrics: metrics,
             reservedStrip: reserved

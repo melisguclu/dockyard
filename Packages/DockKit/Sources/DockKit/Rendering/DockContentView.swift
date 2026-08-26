@@ -5,6 +5,7 @@ import QuartzCore
 
 @MainActor
 public protocol DockContentViewDelegate: AnyObject {
+    func dockContentView(_ view: DockContentView, needs extent: DockPanelExtent)
     func dockContentView(_ view: DockContentView, didActivate tile: DockTile)
     func dockContentView(
         _ view: DockContentView,
@@ -47,6 +48,7 @@ public final class DockContentView: NSView {
     private var appliedMagnification: CGFloat = .nan
     private var settledTicks = 0
     private var appliedIndicator: CGImage?
+    private var panelExtent: DockPanelExtent = .resting
 
     override public init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -196,11 +198,8 @@ public final class DockContentView: NSView {
     override public func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window == nil {
-            stopFrameLink()
+            stopMagnifying()
             dismissTileLabel()
-            magnification = 0
-            magnificationTarget = 0
-            cursor = nil
         }
     }
 
@@ -330,6 +329,13 @@ extension DockContentView {
         }
     }
 
+    public func stopMagnifying() {
+        magnification = 0
+        magnificationTarget = 0
+        cursor = nil
+        stopFrameLink()
+    }
+
     private func startFrameLink() {
         guard frameLink == nil, window != nil else { return }
         let link = displayLink(target: self, selector: #selector(stepFrame(_:)))
@@ -342,6 +348,16 @@ extension DockContentView {
         frameLink?.invalidate()
         frameLink = nil
         settledTicks = 0
+        guard magnification == 0, magnificationTarget == 0, menuIdentifier == nil else { return }
+        request(.resting)
+    }
+
+    @discardableResult
+    private func request(_ extent: DockPanelExtent) -> Bool {
+        guard panelExtent != extent else { return false }
+        panelExtent = extent
+        delegate?.dockContentView(self, needs: extent)
+        return true
     }
 
     @objc private func stepFrame(_ link: CADisplayLink) {
@@ -349,12 +365,15 @@ extension DockContentView {
         let delta = (now - lastTick).clamped(to: 0...Self.maximumFrameDelta)
         lastTick = now
 
-        let pointer = pointerLocation()
+        var pointer = pointerLocation()
         let hovering = pointer.map(interactiveRect.contains) ?? false
 
         if menuIdentifier != nil {
             magnificationTarget = 1
-        } else if magnificationAvailable, hovering, let pointer {
+        } else if magnificationAvailable, hovering {
+            if request(.magnified) {
+                pointer = pointerLocation()
+            }
             cursor = pointer
             magnificationTarget = 1
         } else {
@@ -467,7 +486,8 @@ extension DockContentView {
         dismissTileLabel()
         setPressed(identifier)
         guard magnificationAvailable else { return }
-        cursor = point
+        request(.magnified)
+        cursor = pointerLocation() ?? point
         magnificationTarget = 1
         startFrameLink()
     }

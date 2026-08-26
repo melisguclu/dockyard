@@ -88,6 +88,9 @@ Run every section on real hardware before tagging. Record the results in the rel
 | `tilesize` set to 0 or 10000 | Clamped | [ ] |
 | Login-time launch storm | Coalesced, no per-launch rebuild | [ ] |
 | Cursor swept across the bar at maximum speed | No dropped frames, no runaway animation | [ ] |
+| Window placed under a bar, beside the bar, at either end of the edge | Every part of it the bar does not cover stays clickable | [ ] |
+| Same with a left or right dock, window's traffic lights beside the bar | Close, minimise, and zoom still hit | [ ] |
+| Cursor parked in the space the magnified bar reaches but the resting bar does not | The click lands in the window behind, not in the panel | [ ] |
 
 ## 7. Performance
 

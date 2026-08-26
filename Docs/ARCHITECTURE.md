@@ -73,7 +73,9 @@ Controllers are **pooled** for two minutes after a display disappears. Closing a
 ## Rendering
 
 - The panel is a `.borderless`, `.nonactivatingPanel` `NSPanel` at `CGWindowLevelForKey(.dockWindow)` with `canBecomeKey` overridden to `false`, so clicking a tile never steals focus from the frontmost app.
-- The panel spans the full width of its display and is only as tall as a fully magnified tile needs. Magnification therefore never resizes the window, which would flicker. `hitTest` returns `nil` outside the bar, so the rest of the strip is click-through.
+- The panel is only as large as the region it has to receive events in. A window swallows every click inside its frame whether or not a view claims it: `hitTest` returning `nil` keeps the event out of the bar's own views, but the event is already the panel's and never reaches the application underneath. A panel spanning its display's whole edge therefore made a strip of every window behind it permanently dead — the traffic lights of a window under a side dock, the bottom of one under a bottom dock — which is the one thing a second Dock must not do. No public API shapes a window's event region, so the window is the shape.
+- The panel therefore has two extents, both centred on the same point of the display's edge, so the bar lands on the same pixels in either. At rest it **is** the bar: `barLength` by `screenEdgeMargin + barThickness`, and the only pixels it can swallow are the ones it draws on. While the pointer is on it, it grows to hold the widest bar magnification can produce and the tallest tile it can raise.
+- The two states are the display link's lifetime, not the pointer's position: the panel grows when the link starts and shrinks when the link stops with the ramp at zero, which is one resize on each side of a hover rather than one per frame. Resizing per frame would put a window-server round trip and a fresh backing surface inside the 16 ms the ramp already spends, and `Docs/PERFORMANCE.md` measures what resizing a window under a blur costs. Growing before the ramp begins is what keeps the magnified icons from being clipped by the window they are drawn in; shrinking only once the ramp is spent keeps the panel large while there is anything left to draw outside the bar.
 - The bar's material is a `DockBackdrop`, which picks one of two views at construction and hides the difference behind `apply(bounds:barRect:cornerRadius:)`. Tiles live in a sibling view **above** it either way, because a manually added sublayer of the content view's own layer is drawn below subview layers.
 - On macOS 26 the backdrop is an `NSGlassEffectView` with the **clear** style, no tint, and the layout's corner radius. The view **is** the bar: its frame is the bar rect. A mask would clip the effect's shape but not the refraction its edges produce, which is most of what separates glass from a blur, so the glass is never faked with layers.
 - `.clear` rather than `.regular`, and the hairline border kept rather than dropped, are both measured rather than chosen. The two styles and the real Dock were photographed over the same known backgrounds — an opaque window of flat colour bands placed under each bar, so both docks sample identical pixels — and the bar body fitted to `output = a × background + b`:
@@ -237,6 +239,18 @@ A window destroyed while it is minimized is also not observable — `kAXUIElemen
 Vertical placement is taken from the system rather than modelled: the display hosting the real Dock reserves a strip at its edge, visible as the difference between `frame` and `visibleFrame`, and Dockyard uses that measurement directly for its own bars. At `tilesize` 27 on macOS 26 that strip is 47 points; a ratio-based constant would have put the bar 7 points off. The ratios in `DockMetrics` are the fallback for when the Dock is auto-hidden or absent.
 
 `Scripts/calibrate.swift` prints the live values those ratios are checked against.
+
+`magnificationHeadroom` is how much longer than `barLength` the magnified bar can get, and it is
+what the panel's magnified extent reserves at each end. The bar grows by the sum of every tile's
+own growth, so the total is the raised cosine sampled at one tile pitch, maximised over the
+sub-tile phase of the cursor; the whole of it can land on one side, because the cursor anchors the
+tile under it and a cursor at one end of the strip pushes every other tile away from that end. It
+is capped by what the tiles present can actually add — a dock of three icons cannot grow by four
+tiles' worth — and carries one tile pitch of slack, since shorter tiles sit closer together than
+the sampled pitch assumes. Reserving too little would not clip anything: the layout keeps the bar
+inside the panel, so the bar would slide instead of growing. `DockGeometryTests` sweeps a cursor
+across the strip and asserts the reservation covers the widest bar and the furthest excursion the
+layout actually produces.
 
 `magnificationWindowTiles` is measured rather than assumed. Screenshots of the real Dock at ten
 known cursor positions give the centre of every icon; the distance between neighbouring centres

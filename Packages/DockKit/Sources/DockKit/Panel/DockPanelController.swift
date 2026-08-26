@@ -16,6 +16,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     private let activator = ApplicationActivator()
 
     private var screenFrame: CGRect = .zero
+    private var extent: DockPanelExtent = .resting
     private var maximumBackingScale: CGFloat = 2
     private var snapshot: DockSnapshot = .empty
     private var iconTasks: [DockTileID: Task<Void, Never>] = [:]
@@ -66,12 +67,9 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     }
 
     public func apply(_ snapshot: DockSnapshot) {
-        let appearanceChanged = snapshot.appearance != self.snapshot.appearance
         self.snapshot = snapshot
         contentView.iconPixelSize = iconPixelSize
-        if appearanceChanged {
-            updatePanelFrame()
-        }
+        updatePanelFrame()
         contentView.apply(snapshot)
     }
 
@@ -88,6 +86,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     public func hide() {
         guard isVisible else { return }
         isVisible = false
+        contentView.stopMagnifying()
         contentView.dismissTileLabel()
         panel.orderOut(nil)
     }
@@ -97,11 +96,18 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
             task.cancel()
         }
         iconTasks.removeAll()
+        contentView.stopMagnifying()
         contentView.dismissTileLabel()
         contentView.delegate = nil
         panel.orderOut(nil)
         panel.contentView = nil
         isVisible = false
+    }
+
+    public func dockContentView(_ view: DockContentView, needs extent: DockPanelExtent) {
+        guard self.extent != extent else { return }
+        self.extent = extent
+        updatePanelFrame()
     }
 
     public func dockContentView(_ view: DockContentView, didActivate tile: DockTile) {
@@ -195,10 +201,13 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         guard !screenFrame.isEmpty else { return }
         let frame = DockGeometry.panelFrame(
             screenFrame: screenFrame,
+            tiles: snapshot.tiles,
             appearance: snapshot.appearance,
             metrics: contentView.metrics,
-            reservedStrip: contentView.reservedStrip
+            reservedStrip: contentView.reservedStrip,
+            extent: extent
         )
+        guard frame != panel.frame else { return }
         panel.setFrame(frame, display: false)
         contentView.frame = CGRect(origin: .zero, size: frame.size)
         contentView.relayout()
