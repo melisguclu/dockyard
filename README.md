@@ -15,7 +15,7 @@ Dockyard does not try to move the real Dock. It reads the Dock's own configurati
 Build from source until the first signed release is published:
 
 ```bash
-git clone https://github.com/<owner>/dockyard.git
+git clone https://github.com/melisguclu/dockyard.git
 cd dockyard
 Scripts/make-app.sh release
 cp -R build/Dockyard.app /Applications/
