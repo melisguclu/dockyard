@@ -35,9 +35,14 @@ Dockyard is a menu bar agent with no Dock icon of its own. Its status item offer
 - Hover a tile for its name, in the Dock's own balloon with the tail pointing back at the icon
 - Right-click a running app for its own windows, commands, and recent documents — New Window, New Incognito Window, Next Track, Xcode's recent projects — read from the app's menu bar (optional, needs Accessibility)
 - A tile for every minimized window, between the separator and the Trash, like the real Dock; click one to bring that window back (optional, needs Accessibility)
-- Drag files onto an app tile to open them with that app
+- Drag files onto an app tile to open them with that app, or onto the Trash to move them there
+- Bouncing icons while an application launches, following the Dock's own `launchanim` setting
+- Right-click the separator for Dock Settings, the one item there that does not write the Dock's own preferences
+- Hides over full-screen applications the way the real Dock does, revealing again when the pointer reaches the edge
+- Follows Reduce Transparency and Increase Contrast: the bar turns opaque and takes a full-strength outline
 - Dock magnification, using the system's own `tilesize` and `largesize`
-- Reads `tilesize`, `largesize`, `magnification`, `orientation`, `show-process-indicators`, `show-recents`, and `minimize-to-application` from the system, so it changes when the Dock changes
+- Auto-hide: turn hiding on and every bar hides with the real Dock, revealing on the same `autohide-delay` when the pointer reaches its display's edge and sliding back out when it leaves
+- Reads `tilesize`, `largesize`, `magnification`, `orientation`, `autohide`, `autohide-delay`, `autohide-time-modifier`, `launchanim`, `show-process-indicators`, `show-recents`, and `minimize-to-application` from the system, so it changes when the Dock changes
 - Suppresses its own bar on the display currently hosting the real Dock (configurable)
 - Per-display enable and disable, remembered across disconnects by display hardware identity, not by the volatile `CGDirectDisplayID`
 - Handles display connect, disconnect, resolution change, rearrangement, sleep, and wake
@@ -87,9 +92,11 @@ These are real and are not going away:
 - **Clock does not tick.** The Dock draws Calendar and Clock through each app's dock tile plugin, loaded inside the Dock process. Dockyard will not load third-party code, so it draws Calendar's date itself and leaves Clock as its static bundle icon; a live second hand would need a timer, which the project bans.
 - **The Trash tile updates on app activation, not instantly.** `~/.Trash` needs Full Disk Access to watch, which Dockyard does not request. Its entry count is readable without any permission, so the state is recomputed whenever the snapshot rebuilds, which in practice means as soon as Finder comes forward.
 - **Clicking a running app brings its existing windows forward wherever they already are,** which may be a different display from the bar you clicked. This is exactly what the real Dock does; moving windows between displays is a window-manager feature and an explicit non-goal.
+- **An application with no tile of its own does not bounce while it launches.** The real Dock creates a tile the moment a launch begins; Dockyard's tiles come from the Dock's own state, which does not list a process that has not registered yet, so an app that is neither pinned nor already running appears when it is running rather than bouncing its way in.
 - **Drag-to-reorder does not persist,** because that would mean writing `com.apple.dock` and restarting the Dock.
+- **The separator's menu carries one item, not four.** Right-click the real Dock's separator and it offers Turn Hiding On/Off, Turn Magnification On/Off, Position on Screen, and Dock Settings…. The first three write `com.apple.dock`, so Dockyard offers the fourth alone rather than an item that would silently do nothing.
 - **Reading `com.apple.dock` is not a documented contract.** Apple can change the format. The decoder is defensive and fixture-tested, and `com.apple.dock.prefchanged` has a filesystem-watcher fallback underneath it.
-- **Auto-hide and left/right orientation** are read and modelled, but the auto-hide reveal behaviour is not implemented in v1.
+- **A revealed bar does not push windows aside.** The real Dock's strip is removed from `visibleFrame` and no third-party app can do that, so a maximized window still passes under a bar that is not hiding, and under a hidden one the pointer reaches the edge through the window.
 - **Mirrored displays** get one bar, on the mirror-set primary, not one per mirrored display.
 
 ## How it works
@@ -106,7 +113,7 @@ Requirements: macOS 14 or later to run, Xcode 26 or later to build. The glass ba
 swift build                                   # the app
 Scripts/make-app.sh debug                     # assemble build/Dockyard.app
 (cd Packages/DockCore && swift test)          # 81 tests
-(cd Packages/DockKit  && swift test)          # 74 tests
+(cd Packages/DockKit  && swift test)          # 110 tests
 Scripts/lint-forbidden-apis.sh                # the CI-enforced bans
 Scripts/calibrate.swift                       # measure the real Dock's geometry
 ```
