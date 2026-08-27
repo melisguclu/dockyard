@@ -237,9 +237,28 @@ A window destroyed while it is minimized is also not observable — `kAXUIElemen
 
 `DockGeometry` is pure and takes a `DockLayoutInput`, so it is fully testable headless. It handles all three orientations through a single along-axis and across-axis abstraction.
 
-Vertical placement is taken from the system rather than modelled: the display hosting the real Dock reserves a strip at its edge, visible as the difference between `frame` and `visibleFrame`, and Dockyard uses that measurement directly for its own bars. At `tilesize` 27 on macOS 26 that strip is 47 points; a ratio-based constant would have put the bar 7 points off. The ratios in `DockMetrics` are the fallback for when the Dock is auto-hidden or absent.
+Vertical placement is taken from the system rather than modelled: the display hosting the real Dock reserves a strip at its edge, visible as the difference between `frame` and `visibleFrame`, and what that strip leaves over its bar is the margin Dockyard puts under its own. At `tilesize` 27 on macOS 26 the strip is 47 points against a 41-point bar, a 6-point margin; a ratio-based constant would have put the bar 7 points off. The ratios in `DockMetrics` are the fallback for when the Dock is auto-hidden or absent.
+
+The subtraction has to use the bar the Dock actually drew, which is why `SystemDockLocator.edgeMargin` fits the tile to the *host* display before it subtracts. The strip is one measurement from one display, and Dockyard's panels are on the others: a bar fitted to a 1440-point laptop screen is nowhere near the size of the one the Dock drew on the 2560-point display beside it, and subtracting the laptop's thickness from the wide display's strip left tens of points over. That surplus went straight into the margin, and the bar climbed off the bottom of the screen as `tilesize` went up.
 
 `Scripts/calibrate.swift` prints the live values those ratios are checked against.
+
+The real Dock also stops growing before its bar reaches the ends of the display, so `tilesize` is
+what the user dragged to rather than what gets drawn. Measured from the Dock's own Accessibility
+geometry on a 2560-point display on macOS 26, the item pitch is `tilesize` plus a constant while
+the bar still fits, and then holds: at `tilesize` 128 a bar of 26 tiles settled at a 93.7-point
+pitch and one of 34 tiles at 72.6, an effective tile of 89.7 and 68.6 points. `fittedTileSize`
+reproduces both to within a point by shrinking the tile until the resting bar plus
+`fitSlackTiles` — one tile, the slack the Dock keeps across the two ends — fits the display.
+Without it a dragged-up `tilesize` ran off both ends of the screen, because the layout only ever
+slides an overlong bar, it never scales it.
+
+The fit is a bisection rather than a division because spacing, padding and separator lengths are
+each rounded and floored, which leaves the bar length monotonic in the tile size but not
+proportional to it. It is computed when a snapshot arrives or a panel changes display rather than
+per frame, and every display fits to its own width, so a bar that fits a 5K display is not the
+size drawn on the laptop screen beside it. The fitted size is what the rest of the panel is built
+from — bar, panel frame, and the pixel size icons are rasterised at all follow it.
 
 `magnificationHeadroom` is how much longer than `barLength` the magnified bar can get, and it is
 what the panel's magnified extent reserves at each end. The bar grows by the sum of every tile's

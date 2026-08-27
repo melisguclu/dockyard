@@ -21,7 +21,7 @@ public final class DockContentView: NSView {
     public weak var delegate: DockContentViewDelegate?
     public var metrics: DockMetrics = .current
     public var iconPixelSize: Int = 256
-    public var reservedStrip: CGFloat?
+    public var measuredEdgeMargin: CGFloat?
 
     public private(set) var snapshot: DockSnapshot = .empty
 
@@ -146,7 +146,7 @@ public final class DockContentView: NSView {
                 panelSize: bounds.size,
                 cursor: cursor,
                 magnificationAmount: magnification,
-                reservedStrip: reservedStrip
+                measuredEdgeMargin: measuredEdgeMargin
             )
         )
 

@@ -61,10 +61,10 @@ extension DockGeometry {
     public static func panelThickness(
         _ appearance: DockAppearance,
         _ metrics: DockMetrics,
-        reservedStrip: CGFloat? = nil,
+        measuredEdgeMargin: CGFloat? = nil,
         extent: DockPanelExtent = .magnified
     ) -> CGFloat {
-        let margin = screenEdgeMargin(appearance, metrics, reservedStrip: reservedStrip)
+        let margin = screenEdgeMargin(appearance, metrics, measuredEdgeMargin: measuredEdgeMargin)
         let resting = margin + barThickness(appearance, metrics)
         guard extent == .magnified else { return resting }
         let padding = barPadding(appearance, metrics)
@@ -77,12 +77,12 @@ extension DockGeometry {
         tiles: [DockTile],
         appearance: DockAppearance,
         metrics: DockMetrics,
-        reservedStrip: CGFloat? = nil,
+        measuredEdgeMargin: CGFloat? = nil,
         extent: DockPanelExtent = .magnified
     ) -> CGRect {
         let isVertical = appearance.orientation.isVertical
         let thickness = min(
-            panelThickness(appearance, metrics, reservedStrip: reservedStrip, extent: extent),
+            panelThickness(appearance, metrics, measuredEdgeMargin: measuredEdgeMargin, extent: extent),
             isVertical ? screenFrame.width : screenFrame.height
         )
         let along = min(

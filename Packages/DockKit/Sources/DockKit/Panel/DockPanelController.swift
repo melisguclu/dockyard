@@ -18,6 +18,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     private var screenFrame: CGRect = .zero
     private var extent: DockPanelExtent = .resting
     private var maximumBackingScale: CGFloat = 2
+    private var requested: DockSnapshot = .empty
     private var snapshot: DockSnapshot = .empty
     private var iconTasks: [DockTileID: Task<Void, Never>] = [:]
 
@@ -52,14 +53,19 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         to screen: NSScreen,
         displayID: CGDirectDisplayID,
         maximumBackingScale: CGFloat,
-        reservedStrip: CGFloat?
+        measuredEdgeMargin: CGFloat?
     ) {
         self.displayID = displayID
         let scaleChanged = maximumBackingScale != self.maximumBackingScale
         self.maximumBackingScale = maximumBackingScale
+        let frameChanged = screen.frame != screenFrame
         screenFrame = screen.frame
-        contentView.reservedStrip = reservedStrip
-        updatePanelFrame()
+        contentView.measuredEdgeMargin = measuredEdgeMargin
+        if frameChanged, fitted(requested) != snapshot {
+            apply(requested)
+        } else {
+            updatePanelFrame()
+        }
         if scaleChanged {
             contentView.iconPixelSize = iconPixelSize
             contentView.refreshIcons()
@@ -67,10 +73,26 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     }
 
     public func apply(_ snapshot: DockSnapshot) {
-        self.snapshot = snapshot
+        requested = snapshot
+        let fitted = fitted(snapshot)
+        self.snapshot = fitted
         contentView.iconPixelSize = iconPixelSize
         updatePanelFrame()
-        contentView.apply(snapshot)
+        contentView.apply(fitted)
+    }
+
+    private func fitted(_ snapshot: DockSnapshot) -> DockSnapshot {
+        guard !screenFrame.isEmpty else { return snapshot }
+        let appearance = snapshot.appearance
+        let available = appearance.orientation.isVertical ? screenFrame.height : screenFrame.width
+        let tileSize = DockGeometry.fittedTileSize(
+            tiles: snapshot.tiles,
+            appearance: appearance,
+            metrics: contentView.metrics,
+            available: available
+        )
+        guard tileSize != appearance.tileSize else { return snapshot }
+        return snapshot.withAppearance(appearance.withTileSize(tileSize))
     }
 
     public func refreshIcons() {
@@ -204,7 +226,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
             tiles: snapshot.tiles,
             appearance: snapshot.appearance,
             metrics: contentView.metrics,
-            reservedStrip: contentView.reservedStrip,
+            measuredEdgeMargin: contentView.measuredEdgeMargin,
             extent: extent
         )
         guard frame != panel.frame else { return }

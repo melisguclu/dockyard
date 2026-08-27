@@ -11,6 +11,10 @@ public struct DockSnapshot: Sendable, Equatable {
 
     public static let empty = DockSnapshot(tiles: [], appearance: .default, generation: 0)
 
+    public func withAppearance(_ appearance: DockAppearance) -> DockSnapshot {
+        DockSnapshot(tiles: tiles, appearance: appearance, generation: generation)
+    }
+
     public func tile(with id: DockTileID) -> DockTile? {
         tiles.first { $0.id == id }
     }

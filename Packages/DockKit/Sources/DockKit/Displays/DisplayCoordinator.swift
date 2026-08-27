@@ -79,7 +79,7 @@ public final class DisplayCoordinator {
             ? SystemDockLocator.hostDisplayID(appearance: snapshot.appearance)
             : nil
         let maximumScale = DisplayEnumerator.maximumBackingScaleFactor()
-        let reservedStrip = SystemDockLocator.reservedStrip(appearance: snapshot.appearance)
+        let edgeMargin = SystemDockLocator.edgeMargin(snapshot: snapshot, metrics: metrics)
 
         var wanted: [DisplayIdentity] = []
 
@@ -94,7 +94,7 @@ public final class DisplayCoordinator {
                 to: screen,
                 displayID: display.displayID,
                 maximumBackingScale: maximumScale,
-                reservedStrip: reservedStrip
+                measuredEdgeMargin: edgeMargin
             )
             controller.apply(snapshot)
             controller.show()

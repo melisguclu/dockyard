@@ -55,6 +55,21 @@ public struct DockAppearance: Sendable, Equatable {
 
     public static let `default` = DockAppearance()
 
+    public func withTileSize(_ tileSize: CGFloat) -> DockAppearance {
+        DockAppearance(
+            tileSize: tileSize,
+            largeSize: largeSize,
+            magnificationEnabled: magnificationEnabled,
+            orientation: orientation,
+            autoHide: autoHide,
+            autoHideDelay: autoHideDelay,
+            autoHideTimeModifier: autoHideTimeModifier,
+            showProcessIndicators: showProcessIndicators,
+            showRecents: showRecents,
+            minimizeToApplication: minimizeToApplication
+        )
+    }
+
     public var effectiveLargeSize: CGFloat {
         magnificationEnabled ? max(largeSize, tileSize) : tileSize
     }

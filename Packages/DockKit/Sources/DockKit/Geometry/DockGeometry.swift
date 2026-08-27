@@ -43,7 +43,7 @@ public struct DockLayoutInput: Sendable {
     public let panelSize: CGSize
     public let cursor: CGPoint?
     public let magnificationAmount: CGFloat
-    public let reservedStrip: CGFloat?
+    public let measuredEdgeMargin: CGFloat?
 
     public init(
         tiles: [DockTile],
@@ -52,7 +52,7 @@ public struct DockLayoutInput: Sendable {
         panelSize: CGSize,
         cursor: CGPoint? = nil,
         magnificationAmount: CGFloat = 1,
-        reservedStrip: CGFloat? = nil
+        measuredEdgeMargin: CGFloat? = nil
     ) {
         self.tiles = tiles
         self.appearance = appearance
@@ -60,7 +60,7 @@ public struct DockLayoutInput: Sendable {
         self.panelSize = panelSize
         self.cursor = cursor
         self.magnificationAmount = magnificationAmount.clamped(to: 0...1)
-        self.reservedStrip = reservedStrip
+        self.measuredEdgeMargin = measuredEdgeMargin
     }
 }
 
@@ -84,11 +84,10 @@ public enum DockGeometry {
     public static func screenEdgeMargin(
         _ appearance: DockAppearance,
         _ metrics: DockMetrics,
-        reservedStrip: CGFloat?
+        measuredEdgeMargin: CGFloat?
     ) -> CGFloat {
-        guard let reservedStrip else { return screenEdgeMargin(appearance, metrics) }
-        let measured = reservedStrip - barThickness(appearance, metrics)
-        return max(measured, minimumScreenEdgeMargin)
+        guard let measuredEdgeMargin else { return screenEdgeMargin(appearance, metrics) }
+        return max(measuredEdgeMargin, minimumScreenEdgeMargin)
     }
 
     public static func barThickness(_ appearance: DockAppearance, _ metrics: DockMetrics) -> CGFloat {
@@ -143,6 +142,55 @@ public enum DockGeometry {
         return lengths.reduce(0, +) + gaps + 2 * barPadding(appearance, metrics)
     }
 
+    public static func fittedLength(
+        tiles: [DockTile],
+        appearance: DockAppearance,
+        metrics: DockMetrics
+    ) -> CGFloat {
+        let bar = barLength(tiles: tiles, appearance: appearance, metrics: metrics)
+        guard bar > 0 else { return 0 }
+        return bar + appearance.tileSize * metrics.fitSlackTiles
+    }
+
+    public static func fittedTileSize(
+        tiles: [DockTile],
+        appearance: DockAppearance,
+        metrics: DockMetrics,
+        available: CGFloat
+    ) -> CGFloat {
+        let requested = appearance.tileSize
+        guard !tiles.isEmpty, available > 0 else { return requested }
+        guard fittedLength(tiles: tiles, appearance: appearance, metrics: metrics) > available else {
+            return requested
+        }
+
+        func fits(_ candidate: CGFloat) -> Bool {
+            fittedLength(
+                tiles: tiles,
+                appearance: appearance.withTileSize(candidate),
+                metrics: metrics
+            ) <= available
+        }
+
+        let smallest = min(DockAppearance.tileSizeRange.lowerBound, requested)
+        guard fits(smallest) else { return smallest }
+
+        var low = smallest
+        var high = requested
+        for _ in 0..<fittingRefinements where high - low > fittingTolerance {
+            let middle = (low + high) / 2
+            if fits(middle) {
+                low = middle
+            } else {
+                high = middle
+            }
+        }
+        return (low / fittingTolerance).rounded(.down) * fittingTolerance
+    }
+
+    private static let fittingRefinements = 24
+    private static let fittingTolerance: CGFloat = 0.25
+
     public static func layout(_ input: DockLayoutInput) -> DockLayout {
         let appearance = input.appearance
         let metrics = input.metrics
@@ -152,7 +200,7 @@ public enum DockGeometry {
 
         let padding = barPadding(appearance, metrics)
         let gap = spacing(appearance, metrics)
-        let margin = screenEdgeMargin(appearance, metrics, reservedStrip: input.reservedStrip)
+        let margin = screenEdgeMargin(appearance, metrics, measuredEdgeMargin: input.measuredEdgeMargin)
         let isVertical = appearance.orientation.isVertical
         let available = isVertical ? input.panelSize.height : input.panelSize.width
 

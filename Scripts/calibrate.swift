@@ -110,10 +110,12 @@ if autohide {
     print("reservedStrip                \(reservedStrip)")
     print("reservedStrip / tilesize     \(reservedStrip / tileSize)")
     print("")
-    print("Dockyard uses reservedStrip directly at runtime, so its bar sits at the same")
-    print("distance from the screen edge as the real Dock. The ratio above is the fallback")
-    print("used when the Dock is hidden or on no display: it should equal")
-    print("(tilesize + 2 * barPadding + screenEdgeMargin) / tilesize.")
+    print("At runtime Dockyard subtracts the Dock's own bar thickness from reservedStrip and")
+    print("keeps what is left as the margin between the bar and the screen edge, so the")
+    print("subtraction has to use the size the Dock actually drew rather than tilesize: on a")
+    print("display too narrow for tilesize the Dock shrinks its tiles until the bar fits. The")
+    print("ratio above is the fallback used when the Dock is hidden or on no display: it")
+    print("should equal (tilesize + 2 * barPadding + screenEdgeMargin) / tilesize.")
 } else {
     print("No display reserves an edge, so the Dock is hidden or auto-hidden.")
 }

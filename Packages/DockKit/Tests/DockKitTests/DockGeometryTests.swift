@@ -545,14 +545,15 @@ struct DockGeometryTests {
         #expect(abs(layout.barRect.midY - 1440 / 2) < 0.51)
     }
 
-    @Test("A measured reserved strip positions the bar exactly like the real Dock")
-    func measuredReservedStrip() {
+    @Test("A measured edge margin positions the bar exactly like the real Dock")
+    func measuredEdgeMargin() {
         let tiles = TileFactory.applications(5)
-        let reserved: CGFloat = 47
+        let measured: CGFloat = 6
         let candidate = DockAppearance(tileSize: 27, largeSize: 48, magnificationEnabled: true)
+        let thickness = DockGeometry.barThickness(candidate, metrics)
 
-        let margin = DockGeometry.screenEdgeMargin(candidate, metrics, reservedStrip: reserved)
-        #expect(margin == reserved - DockGeometry.barThickness(candidate, metrics))
+        let margin = DockGeometry.screenEdgeMargin(candidate, metrics, measuredEdgeMargin: measured)
+        #expect(margin == measured)
 
         let layout = DockGeometry.layout(
             DockLayoutInput(
@@ -560,25 +561,44 @@ struct DockGeometryTests {
                 appearance: candidate,
                 metrics: metrics,
                 panelSize: CGSize(width: 2560, height: 200),
-                reservedStrip: reserved
+                measuredEdgeMargin: measured
             )
         )
-        #expect(layout.barRect.minY == margin)
-        #expect(layout.barRect.maxY == reserved)
+        #expect(layout.barRect.minY == measured)
+        #expect(layout.barRect.maxY == measured + thickness)
 
         let frame = DockGeometry.panelFrame(
             screenFrame: Displays.builtIn,
             tiles: tiles,
             appearance: candidate,
             metrics: metrics,
-            reservedStrip: reserved
+            measuredEdgeMargin: measured
         )
-        #expect(frame.height >= reserved)
+        #expect(frame.height >= measured + thickness)
     }
 
-    @Test("An absurd reserved strip never pushes the bar below the screen edge")
-    func degenerateReservedStrip() {
-        let margin = DockGeometry.screenEdgeMargin(plain, metrics, reservedStrip: 1)
+    @Test("The measured margin holds the bar down whatever the tile size is")
+    func measuredMarginIgnoresTheTileSize() {
+        let tiles = TileFactory.applications(5)
+        let measured: CGFloat = 6
+
+        for size in [CGFloat(16), 27, 48, 128] {
+            let layout = DockGeometry.layout(
+                DockLayoutInput(
+                    tiles: tiles,
+                    appearance: DockAppearance(tileSize: size),
+                    metrics: metrics,
+                    panelSize: CGSize(width: 2560, height: 400),
+                    measuredEdgeMargin: measured
+                )
+            )
+            #expect(layout.barRect.minY == measured)
+        }
+    }
+
+    @Test("An absurd edge margin never pushes the bar below the screen edge")
+    func degenerateEdgeMargin() {
+        let margin = DockGeometry.screenEdgeMargin(plain, metrics, measuredEdgeMargin: -20)
         #expect(margin == DockGeometry.minimumScreenEdgeMargin)
     }
 
@@ -597,6 +617,87 @@ struct DockGeometryTests {
             #expect(DockGeometry.hitIndex(in: layout, at: centre) == index)
         }
         #expect(DockGeometry.hitIndex(in: layout, at: CGPoint(x: 5, y: 5)) == nil)
+    }
+
+    @Test("A dock that fits the display keeps the size the Dock asked for")
+    func fittedSizeLeavesSmallDocksAlone() {
+        let tiles = TileFactory.applications(8) + [TileFactory.trash]
+        let fitted = DockGeometry.fittedTileSize(
+            tiles: tiles,
+            appearance: plain,
+            metrics: metrics,
+            available: Displays.builtIn.width
+        )
+        #expect(fitted == plain.tileSize)
+    }
+
+    @Test("A dock too long for the display shrinks until the bar fits")
+    func fittedSizeShrinksAnOverlongDock() {
+        let tiles = TileFactory.applications(60)
+        let requested = DockAppearance(tileSize: 128)
+        let available = Displays.builtIn.width
+        let fitted = DockGeometry.fittedTileSize(
+            tiles: tiles,
+            appearance: requested,
+            metrics: metrics,
+            available: available
+        )
+
+        #expect(fitted < requested.tileSize)
+        #expect(
+            DockGeometry.fittedLength(
+                tiles: tiles,
+                appearance: requested.withTileSize(fitted),
+                metrics: metrics
+            ) <= available
+        )
+        #expect(
+            DockGeometry.fittedLength(
+                tiles: tiles,
+                appearance: requested.withTileSize(fitted + 1),
+                metrics: metrics
+            ) > available
+        )
+    }
+
+    @Test("The fitted size never falls below the smallest tile the Dock allows")
+    func fittedSizeStopsAtTheSmallestTile() {
+        let tiles = TileFactory.applications(400)
+        let fitted = DockGeometry.fittedTileSize(
+            tiles: tiles,
+            appearance: DockAppearance(tileSize: 128),
+            metrics: metrics,
+            available: Displays.builtIn.width
+        )
+        #expect(fitted == DockAppearance.tileSizeRange.lowerBound)
+    }
+
+    @Test("The fitted size matches the cap the real Dock settles on")
+    func fittedSizeMatchesTheMeasuredDock() {
+        let tahoe = DockMetrics.tahoe
+        let width = CGFloat(2560)
+        let requested = DockAppearance(tileSize: 128)
+
+        let twentySix =
+            TileFactory.applications(24) + [TileFactory.separator, TileFactory.trash]
+        let thirtyFour =
+            TileFactory.applications(32) + [TileFactory.separator, TileFactory.trash]
+
+        let wide = DockGeometry.fittedTileSize(
+            tiles: twentySix,
+            appearance: requested,
+            metrics: tahoe,
+            available: width
+        )
+        let crowded = DockGeometry.fittedTileSize(
+            tiles: thirtyFour,
+            appearance: requested,
+            metrics: tahoe,
+            available: width
+        )
+
+        #expect(abs(wide - 89.7) <= 2)
+        #expect(abs(crowded - 68.6) <= 2)
     }
 
     @Test("The running indicator fits inside the bar padding")

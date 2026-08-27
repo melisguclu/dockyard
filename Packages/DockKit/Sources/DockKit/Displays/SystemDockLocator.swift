@@ -32,12 +32,26 @@ public enum SystemDockLocator {
         return inset > 1 ? inset : nil
     }
 
-    public static func reservedStrip(appearance: DockAppearance) -> CGFloat? {
+    public static func edgeMargin(
+        snapshot: DockSnapshot,
+        metrics: DockMetrics
+    ) -> CGFloat? {
+        let appearance = snapshot.appearance
         guard !appearance.autoHide else { return nil }
         for display in DisplayEnumerator.current() {
-            if let strip = reservedStrip(of: display, appearance: appearance) {
-                return strip
-            }
+            guard let strip = reservedStrip(of: display, appearance: appearance) else { continue }
+            let available = appearance.orientation.isVertical
+                ? display.frame.height
+                : display.frame.width
+            let hosted = appearance.withTileSize(
+                DockGeometry.fittedTileSize(
+                    tiles: snapshot.tiles,
+                    appearance: appearance,
+                    metrics: metrics,
+                    available: available
+                )
+            )
+            return strip - DockGeometry.barThickness(hosted, metrics)
         }
         return nil
     }

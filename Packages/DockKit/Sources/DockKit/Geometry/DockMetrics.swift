@@ -11,6 +11,7 @@ public struct DockMetrics: Sendable, Equatable {
     public let separatorLengthRatio: CGFloat
     public let smallSpacerLengthRatio: CGFloat
     public let magnificationWindowTiles: CGFloat
+    public let fitSlackTiles: CGFloat
     public let borderWidth: CGFloat
 
     public init(
@@ -23,6 +24,7 @@ public struct DockMetrics: Sendable, Equatable {
         separatorLengthRatio: CGFloat,
         smallSpacerLengthRatio: CGFloat,
         magnificationWindowTiles: CGFloat,
+        fitSlackTiles: CGFloat,
         borderWidth: CGFloat
     ) {
         self.interTileSpacingRatio = interTileSpacingRatio
@@ -34,6 +36,7 @@ public struct DockMetrics: Sendable, Equatable {
         self.separatorLengthRatio = separatorLengthRatio
         self.smallSpacerLengthRatio = smallSpacerLengthRatio
         self.magnificationWindowTiles = magnificationWindowTiles
+        self.fitSlackTiles = fitSlackTiles
         self.borderWidth = borderWidth
     }
 
@@ -47,6 +50,7 @@ public struct DockMetrics: Sendable, Equatable {
         separatorLengthRatio: 0.2500,
         smallSpacerLengthRatio: 0.5000,
         magnificationWindowTiles: 3.0,
+        fitSlackTiles: 1.0,
         borderWidth: 1.0
     )
 
@@ -60,6 +64,7 @@ public struct DockMetrics: Sendable, Equatable {
         separatorLengthRatio: 0.2500,
         smallSpacerLengthRatio: 0.5000,
         magnificationWindowTiles: 3.9,
+        fitSlackTiles: 1.0,
         borderWidth: 1.0
     )
 

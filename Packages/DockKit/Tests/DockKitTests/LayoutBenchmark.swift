@@ -58,7 +58,7 @@ struct LayoutBenchmark {
                     panelSize: panel,
                     cursor: cursor,
                     magnificationAmount: 1,
-                    reservedStrip: nil
+                    measuredEdgeMargin: nil
                 )
             )
             samples.append((CFAbsoluteTimeGetCurrent() - start) * 1000)
@@ -82,7 +82,7 @@ struct LayoutBenchmark {
                 panelSize: panel,
                 cursor: CGPoint(x: 900, y: 40),
                 magnificationAmount: 1,
-                reservedStrip: nil
+                measuredEdgeMargin: nil
             )
         )
         let screen = CGRect(x: 0, y: 0, width: 2560, height: 1440)
