@@ -28,21 +28,20 @@ extension DockContentView {
     private func dragOperation(for sender: any NSDraggingInfo) -> NSDragOperation {
         dismissTileLabel()
         let point = convert(sender.draggingLocation, from: nil)
-        guard let tile = tile(at: point), canAcceptDrop(on: tile) else {
+        guard let tile = tile(at: point) else {
+            setDropTarget(nil)
+            return []
+        }
+        let operation = DockDropPolicy.operation(
+            for: tile,
+            allowed: sender.draggingSourceOperationMask
+        )
+        guard !operation.isEmpty else {
             setDropTarget(nil)
             return []
         }
         setDropTarget(tile.id)
-        return .copy
-    }
-
-    private func canAcceptDrop(on tile: DockTile) -> Bool {
-        switch tile.kind {
-        case .application:
-            return true
-        default:
-            return false
-        }
+        return operation
     }
 
     private func setDropTarget(_ identifier: DockTileID?) {

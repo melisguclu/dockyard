@@ -31,6 +31,22 @@ public struct ApplicationActivator {
         NSWorkspace.shared.open(url)
     }
 
+    @discardableResult
+    public func moveToTrash(_ urls: [URL]) -> Bool {
+        var trashed = false
+        for url in urls {
+            do {
+                try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+                trashed = true
+            } catch {
+                DockLog.workspace.error(
+                    "Failed to move an item to the Trash: \(error.localizedDescription, privacy: .private)"
+                )
+            }
+        }
+        return trashed
+    }
+
     public func openTrash() {
         guard let trash = TileEnvironment.trashDirectory else { return }
         NSWorkspace.shared.open(trash)
@@ -108,7 +124,9 @@ public struct ApplicationActivator {
         configuration.activates = true
         NSWorkspace.shared.openApplication(at: url, configuration: configuration) { _, error in
             if let error {
-                DockLog.workspace.error("Failed to launch application: \(error.localizedDescription, privacy: .private)")
+                DockLog.workspace.error(
+                    "Failed to launch application: \(error.localizedDescription, privacy: .private)"
+                )
             }
         }
     }
