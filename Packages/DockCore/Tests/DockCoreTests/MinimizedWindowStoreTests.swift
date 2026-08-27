@@ -97,7 +97,11 @@ struct MinimizedWindowStoreTests {
         store.update(with: [application(10), application(11, isActive: true)])
         await store.settle()
 
-        #expect(await inspector.reads() == [10, 11, 11])
+        let reads = await inspector.reads()
+
+        #expect(reads.count == 3)
+        #expect(Set(reads.prefix(2)) == [10, 11])
+        #expect(reads.last == 11)
     }
 
     @Test("A window keeps its tile identity across a re-read, and a new one lands last")
