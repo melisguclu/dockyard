@@ -18,8 +18,11 @@ public final class DockBackdrop {
     public let style: Style
     public let view: NSView
     public let borderLayer = CALayer()
+    public let fillLayer = CALayer()
 
     private let maskLayer: CALayer?
+    private var accessibility = DockAccessibilityAppearance.standard
+    private var resolvedAppearance: NSAppearance.Name?
 
     public init(style: Style = DockBackdrop.preferredStyle) {
         if style == .glass, let glass = Self.makeGlassView() {
@@ -44,6 +47,20 @@ public final class DockBackdrop {
             self.style == .glass
             ? DockMaterial.glassBorderColor
             : DockMaterial.borderColor
+        fillLayer.isHidden = true
+    }
+
+    public func setAccessibility(_ value: DockAccessibilityAppearance, appearance: NSAppearance) {
+        guard value != accessibility || appearance.name != resolvedAppearance else { return }
+        accessibility = value
+        resolvedAppearance = appearance.name
+        fillLayer.isHidden = !value.reduceTransparency
+        fillLayer.backgroundColor = DockMaterial.reducedTransparencyFill(for: appearance)
+        borderLayer.borderColor = DockMaterial.borderColor(
+            style: style,
+            accessibility: value,
+            appearance: appearance
+        )
     }
 
     public func apply(bounds: CGRect, barRect: CGRect, cornerRadius: CGFloat) {
@@ -59,6 +76,8 @@ public final class DockBackdrop {
             applyGlassCornerRadius(cornerRadius)
         }
 
+        fillLayer.frame = barRect
+        fillLayer.cornerRadius = cornerRadius
         borderLayer.frame = barRect
         borderLayer.cornerRadius = cornerRadius
     }
