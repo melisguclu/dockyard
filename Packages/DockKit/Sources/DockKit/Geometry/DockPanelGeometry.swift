@@ -2,9 +2,16 @@ import CoreGraphics
 import DockCore
 import Foundation
 
-public enum DockPanelExtent: Sendable, Equatable {
-    case resting
-    case magnified
+public struct DockPanelExtent: OptionSet, Sendable, Equatable {
+    public let rawValue: Int
+
+    public init(rawValue: Int) {
+        self.rawValue = rawValue
+    }
+
+    public static let magnified = DockPanelExtent(rawValue: 1 << 0)
+    public static let bouncing = DockPanelExtent(rawValue: 1 << 1)
+    public static let resting: DockPanelExtent = []
 }
 
 extension DockGeometry {
@@ -53,7 +60,7 @@ extension DockGeometry {
         extent: DockPanelExtent
     ) -> CGFloat {
         let bar = barLength(tiles: tiles, appearance: appearance, metrics: metrics)
-        guard bar > 0, extent == .magnified else { return bar }
+        guard bar > 0, extent.contains(.magnified) else { return bar }
         let headroom = magnificationHeadroom(tiles: tiles, appearance: appearance, metrics: metrics)
         return bar + 2 * headroom
     }
@@ -65,11 +72,17 @@ extension DockGeometry {
         extent: DockPanelExtent = .magnified
     ) -> CGFloat {
         let margin = screenEdgeMargin(appearance, metrics, measuredEdgeMargin: measuredEdgeMargin)
-        let resting = margin + barThickness(appearance, metrics)
-        guard extent == .magnified else { return resting }
         let padding = barPadding(appearance, metrics)
-        let magnified = margin + padding + appearance.effectiveLargeSize + padding
-        return max(resting, magnified)
+        let magnified = extent.contains(.magnified)
+        var thickness = margin + barThickness(appearance, metrics)
+        if magnified {
+            thickness = max(thickness, margin + padding + appearance.effectiveLargeSize + padding)
+        }
+        if extent.contains(.bouncing) {
+            let icon = magnified ? appearance.effectiveLargeSize : appearance.tileSize
+            thickness = max(thickness, margin + padding + icon + DockLaunchBounce.travel(appearance))
+        }
+        return thickness
     }
 
     public static func panelFrame(

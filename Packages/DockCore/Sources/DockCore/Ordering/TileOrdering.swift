@@ -223,9 +223,7 @@ public enum TileOrdering {
         }
 
         private func identifier(bundleIdentifier: String?, path: String?) -> DockTileID? {
-            if let bundleIdentifier, !bundleIdentifier.isEmpty { return .bundle(bundleIdentifier) }
-            if let path, !path.isEmpty { return .path(path) }
-            return nil
+            DockTileID.application(bundleIdentifier: bundleIdentifier, path: path)
         }
     }
 }

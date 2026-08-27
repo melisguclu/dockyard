@@ -11,6 +11,12 @@ public enum DockTileID: Hashable, Sendable {
     case path(String)
     case builtin(DockTileBuiltin)
     case window(UInt64)
+
+    public static func application(bundleIdentifier: String?, path: String?) -> DockTileID? {
+        if let bundleIdentifier, !bundleIdentifier.isEmpty { return .bundle(bundleIdentifier) }
+        if let path, !path.isEmpty { return .path(path) }
+        return nil
+    }
 }
 
 public enum FolderStackDisplay: Int, Sendable, Equatable, Codable {

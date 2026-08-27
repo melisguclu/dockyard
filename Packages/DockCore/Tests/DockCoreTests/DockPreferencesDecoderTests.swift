@@ -22,6 +22,7 @@ struct DockPreferencesDecoderTests {
         #expect(raw.appearance.tileSize == 48)
         #expect(raw.appearance.largeSize == 128)
         #expect(raw.appearance.showProcessIndicators)
+        #expect(raw.appearance.launchAnimation)
         #expect(raw.appearance.showRecents)
         #expect(raw.appearance.orientation == .bottom)
     }
@@ -103,6 +104,7 @@ struct DockPreferencesDecoderTests {
         #expect(appearance.autoHideDelay == 0.2)
         #expect(appearance.autoHideTimeModifier == 0.75)
         #expect(appearance.showProcessIndicators == false)
+        #expect(appearance.launchAnimation == false)
         #expect(appearance.minimizeToApplication)
     }
 
@@ -120,12 +122,14 @@ struct DockPreferencesDecoderTests {
         let values = DictionaryPreferencesValues([
             "tilesize": "72",
             "magnification": "1",
-            "orientation": "right"
+            "orientation": "right",
+            "launchanim": "0"
         ])
         let appearance = DockPreferencesDecoder.decodeAppearance(values)
 
         #expect(appearance.tileSize == 72)
         #expect(appearance.magnificationEnabled)
         #expect(appearance.orientation == .right)
+        #expect(appearance.launchAnimation == false)
     }
 }

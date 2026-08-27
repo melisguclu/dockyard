@@ -12,6 +12,7 @@ public final class DockStateStore {
     public let iconProvider: IconProvider
     public let appMenuStore: AppMenuStore
     public let minimizedWindowStore: MinimizedWindowStore
+    public let launchActivity: LaunchActivityObserver
 
     private let subject: CurrentValueSubject<DockSnapshot, Never>
     private let reader: DockPreferencesReader
@@ -37,6 +38,7 @@ public final class DockStateStore {
         self.preferencesWatcher = preferencesWatcher
         appMenuStore = AppMenuStore()
         minimizedWindowStore = MinimizedWindowStore()
+        launchActivity = LaunchActivityObserver()
         subject = CurrentValueSubject(.empty)
     }
 
@@ -49,6 +51,7 @@ public final class DockStateStore {
             self?.rebuild()
         }
         minimizedWindowStore.start()
+        launchActivity.start()
         runningObserver.start(
             onChange: { [weak self] in
                 guard let self else { return }
@@ -72,6 +75,7 @@ public final class DockStateStore {
         resolveTask?.cancel()
         resolveTask = nil
         preferencesWatcher.stop()
+        launchActivity.stop()
         minimizedWindowStore.stop()
     }
 

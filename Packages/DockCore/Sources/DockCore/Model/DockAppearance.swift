@@ -17,6 +17,7 @@ public struct DockAppearance: Sendable, Equatable {
     public let autoHide: Bool
     public let autoHideDelay: TimeInterval
     public let autoHideTimeModifier: Double
+    public let launchAnimation: Bool
     public let showProcessIndicators: Bool
     public let showRecents: Bool
     public let minimizeToApplication: Bool
@@ -29,6 +30,7 @@ public struct DockAppearance: Sendable, Equatable {
         autoHide: Bool = false,
         autoHideDelay: TimeInterval = 0.5,
         autoHideTimeModifier: Double = 1.0,
+        launchAnimation: Bool = true,
         showProcessIndicators: Bool = true,
         showRecents: Bool = true,
         minimizeToApplication: Bool = false
@@ -40,6 +42,7 @@ public struct DockAppearance: Sendable, Equatable {
         self.autoHide = autoHide
         self.autoHideDelay = autoHideDelay
         self.autoHideTimeModifier = autoHideTimeModifier
+        self.launchAnimation = launchAnimation
         self.showProcessIndicators = showProcessIndicators
         self.showRecents = showRecents
         self.minimizeToApplication = minimizeToApplication
@@ -64,6 +67,7 @@ public struct DockAppearance: Sendable, Equatable {
             autoHide: autoHide,
             autoHideDelay: autoHideDelay,
             autoHideTimeModifier: autoHideTimeModifier,
+            launchAnimation: launchAnimation,
             showProcessIndicators: showProcessIndicators,
             showRecents: showRecents,
             minimizeToApplication: minimizeToApplication

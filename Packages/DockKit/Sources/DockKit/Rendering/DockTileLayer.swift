@@ -88,6 +88,50 @@ public final class DockTileLayer {
         highlightLayer.opacity = highlighted ? 1 : 0
     }
 
+    public func setLaunching(_ bounce: DockLaunchBounce) {
+        let start = iconLayer.convertTime(CACurrentMediaTime(), from: nil)
+        for layer in [iconLayer, pressLayer] {
+            let animation = Self.animation(for: bounce)
+            animation.beginTime = start
+            layer.add(animation, forKey: Self.bounceKey)
+        }
+    }
+
+    @discardableResult
+    public func finishLaunching() -> Double {
+        [iconLayer, pressLayer].reduce(0) { max($0, Self.finish($1)) }
+    }
+
+    private static func finish(_ layer: CALayer) -> Double {
+        guard
+            let running = layer.animation(forKey: bounceKey) as? CAKeyframeAnimation,
+            running.repeatCount.isInfinite,
+            running.duration > 0,
+            let finishing = running.copy() as? CAKeyframeAnimation
+        else { return 0 }
+
+        let elapsed = max(layer.convertTime(CACurrentMediaTime(), from: nil) - running.beginTime, 0)
+        let cycles = (elapsed / running.duration).rounded(.down) + 1
+        finishing.repeatCount = Float(cycles)
+        layer.add(finishing, forKey: bounceKey)
+        return cycles * running.duration - elapsed
+    }
+
+    private static func animation(for bounce: DockLaunchBounce) -> CAKeyframeAnimation {
+        let animation = CAKeyframeAnimation(keyPath: bounce.axis.keyPath)
+        animation.values = bounce.values.map { NSNumber(value: Double($0)) }
+        animation.keyTimes = bounce.keyTimes.map { NSNumber(value: $0) }
+        animation.timingFunctions = [
+            CAMediaTimingFunction(name: .easeOut),
+            CAMediaTimingFunction(name: .easeIn),
+            CAMediaTimingFunction(name: .linear),
+        ]
+        animation.duration = DockLaunchBounce.period
+        animation.repeatCount = .infinity
+        animation.isAdditive = true
+        return animation
+    }
+
     public func setPressed(_ pressed: Bool) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -147,5 +191,6 @@ public final class DockTileLayer {
         indicatorLayer.frame = indicatorFrame
     }
 
+    private static let bounceKey = "launch-bounce"
     private static let pressDimAlpha: CGFloat = 0.525
 }

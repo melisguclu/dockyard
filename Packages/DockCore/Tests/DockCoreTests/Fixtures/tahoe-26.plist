@@ -10,6 +10,8 @@
 	<real>0.75</real>
 	<key>largesize</key>
 	<real>96.0</real>
+	<key>launchanim</key>
+	<false/>
 	<key>magnification</key>
 	<true/>
 	<key>minimize-to-application</key>

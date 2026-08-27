@@ -43,6 +43,7 @@ public enum DockPreferencesDecoder {
                 .clamped(to: DockAppearance.autoHideDelayRange),
             autoHideTimeModifier: values.double("autohide-time-modifier", default: 1.0)
                 .clamped(to: DockAppearance.autoHideTimeModifierRange),
+            launchAnimation: values.bool("launchanim", default: true),
             showProcessIndicators: values.bool("show-process-indicators", default: true),
             showRecents: values.bool("show-recents", default: true),
             minimizeToApplication: values.bool("minimize-to-application", default: false)
