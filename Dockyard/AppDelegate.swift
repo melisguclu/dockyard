@@ -27,9 +27,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         coordinator.onDisplaysChanged = { [weak self] displays in
             self?.updateKnownDisplays(displays)
         }
+        coordinator.onTrashChanged = { [weak self] in
+            self?.store.rebuild()
+        }
 
         preferences.onChange = { [weak self] in
             self?.coordinator.reconcile()
+        }
+
+        store.launchActivity.onChange = { [weak self] identifiers in
+            self?.coordinator.setLaunching(identifiers)
         }
 
         store.snapshots

@@ -3,30 +3,22 @@ import DockCore
 import Foundation
 import QuartzCore
 
-@MainActor
-public protocol DockContentViewDelegate: AnyObject {
-    func dockContentView(_ view: DockContentView, needs extent: DockPanelExtent)
-    func dockContentView(_ view: DockContentView, didActivate tile: DockTile)
-    func dockContentView(
-        _ view: DockContentView,
-        menuItemsFor tile: DockTile,
-        availableHeight: CGFloat
-    ) -> [DockMenuItem]
-    func dockContentView(_ view: DockContentView, didSelect command: DockTileMenuCommand, on tile: DockTile)
-    func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile)
-    func dockContentView(_ view: DockContentView, needsIconFor tile: DockTile, pixelSize: Int)
-}
-
 public final class DockContentView: NSView {
     public weak var delegate: DockContentViewDelegate?
     public var metrics: DockMetrics = .current
     public var iconPixelSize: Int = 256
     public var measuredEdgeMargin: CGFloat?
+    public var accessibilityAppearance: DockAccessibilityAppearance = .current {
+        didSet {
+            guard accessibilityAppearance != oldValue else { return }
+            relayout()
+        }
+    }
 
     public private(set) var snapshot: DockSnapshot = .empty
 
     private let tileMenu = DockTileMenuController()
-    private let tileLabel = DockTileLabelController()
+    let tileLabel = DockTileLabelController()
     public private(set) var currentLayout: DockLayout = .empty
 
     private let backdrop = DockBackdrop()
@@ -36,10 +28,11 @@ public final class DockContentView: NSView {
     private var cursor: CGPoint?
     private var pressedIdentifier: DockTileID?
     private var dimmedIdentifier: DockTileID?
-    private var menuIdentifier: DockTileID?
-    private var labelIdentifier: DockTileID?
+    var menuIdentifier: DockTileID?
+    var labelIdentifier: DockTileID?
     var dropTargetIdentifier: DockTileID?
     private var trackingRegion: NSTrackingArea?
+    private var pointerInside = false
     private var frameLink: CADisplayLink?
     private var magnification: CGFloat = 0
     private var magnificationTarget: CGFloat = 0
@@ -48,7 +41,12 @@ public final class DockContentView: NSView {
     private var appliedMagnification: CGFloat = .nan
     private var settledTicks = 0
     private var appliedIndicator: CGImage?
-    private var panelExtent: DockPanelExtent = .resting
+    var panelExtent: DockPanelExtent = .resting
+    var wantsMagnification = false
+    var requestedLaunching: Set<DockTileID> = []
+    var launchingTiles: Set<DockTileID> = []
+    var appliedBounce: DockLaunchBounce?
+    var launchSettleTask: Task<Void, Never>?
 
     override public init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -79,6 +77,7 @@ public final class DockContentView: NSView {
         tileHost.masksToBounds = false
         tileContainer.layer?.masksToBounds = false
         backdrop.borderLayer.borderWidth = metrics.borderWidth
+        tileContainer.layer?.addSublayer(backdrop.fillLayer)
         tileContainer.layer?.addSublayer(backdrop.borderLayer)
         tileContainer.layer?.addSublayer(tileHost)
 
@@ -117,6 +116,7 @@ public final class DockContentView: NSView {
         }
 
         relayout()
+        refreshLaunchAnimations()
 
         if labelIdentifier != nil {
             updateTileLabel(at: pointerLocation())
@@ -161,6 +161,7 @@ public final class DockContentView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
 
+        backdrop.setAccessibility(accessibilityAppearance, appearance: effectiveAppearance)
         backdrop.apply(
             bounds: bounds,
             barRect: currentLayout.barRect,
@@ -221,7 +222,7 @@ public final class DockContentView: NSView {
         }
         let area = NSTrackingArea(
             rect: bounds,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways],
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .assumeInside],
             owner: self,
             userInfo: nil
         )
@@ -283,17 +284,39 @@ public final class DockContentView: NSView {
 
 extension DockContentView {
     override public func mouseEntered(with event: NSEvent) {
+        updatePointerPresence(true)
         startFrameLink()
     }
 
     override public func mouseMoved(with event: NSEvent) {
+        updatePointerPresence(true)
         startFrameLink()
     }
 
     override public func mouseExited(with event: NSEvent) {
         magnificationTarget = 0
         dismissTileLabel()
+        updatePointerPresence(false)
         startFrameLink()
+    }
+
+    public func refreshPointerPresence() {
+        let pointer = pointerLocation()
+        guard let pointer, bounds.contains(pointer) else {
+            pointerInside = false
+            delegate?.dockContentViewPointerDidLeave(self)
+            return
+        }
+        pointerInside = true
+        startFrameLink()
+    }
+
+    private func updatePointerPresence(_ inside: Bool) {
+        guard menuIdentifier == nil, dropTargetIdentifier == nil else { return }
+        guard pointerInside != inside else { return }
+        pointerInside = inside
+        guard !inside else { return }
+        delegate?.dockContentViewPointerDidLeave(self)
     }
 
     override public func mouseDown(with event: NSEvent) {
@@ -349,15 +372,7 @@ extension DockContentView {
         frameLink = nil
         settledTicks = 0
         guard magnification == 0, magnificationTarget == 0, menuIdentifier == nil else { return }
-        request(.resting)
-    }
-
-    @discardableResult
-    private func request(_ extent: DockPanelExtent) -> Bool {
-        guard panelExtent != extent else { return false }
-        panelExtent = extent
-        delegate?.dockContentView(self, needs: extent)
-        return true
+        requestMagnification(false)
     }
 
     @objc private func stepFrame(_ link: CADisplayLink) {
@@ -367,11 +382,12 @@ extension DockContentView {
 
         var pointer = pointerLocation()
         let hovering = pointer.map(interactiveRect.contains) ?? false
+        updatePointerPresence(pointer.map(bounds.contains) ?? false)
 
         if menuIdentifier != nil {
             magnificationTarget = 1
         } else if magnificationAvailable, hovering {
-            if request(.magnified) {
+            if requestMagnification(true) {
                 pointer = pointerLocation()
             }
             cursor = pointer
@@ -413,37 +429,6 @@ extension DockContentView {
         return convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
     }
 
-    public func dismissTileLabel() {
-        labelIdentifier = nil
-        tileLabel.dismiss()
-    }
-
-    private func updateTileLabel(at point: CGPoint?) {
-        guard menuIdentifier == nil, dropTargetIdentifier == nil, let point, let window,
-            let index = DockGeometry.hitIndex(in: currentLayout, at: point), index < snapshot.tiles.count
-        else {
-            dismissTileLabel()
-            return
-        }
-
-        let tile = snapshot.tiles[index]
-        guard tile.isInteractive, !tile.label.isEmpty else {
-            dismissTileLabel()
-            return
-        }
-
-        labelIdentifier = tile.id
-        tileLabel.present(
-            DockTileLabelRequest(
-                identifier: tile.id,
-                text: tile.label,
-                anchor: window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil)),
-                orientation: snapshot.appearance.orientation,
-                screen: window.screen?.visibleFrame ?? window.frame,
-                appearance: effectiveAppearance
-            )
-        )
-    }
 }
 
 extension DockContentView {
@@ -455,7 +440,7 @@ extension DockContentView {
         else { return }
 
         let tile = snapshot.tiles[index]
-        guard tile.isInteractive else { return }
+        guard tile.providesMenu else { return }
         let screen = window.screen?.visibleFrame ?? window.frame
         let height = screen.height - 2 * tileMenu.metrics.screenInset
         let items = delegate?.dockContentView(self, menuItemsFor: tile, availableHeight: height) ?? []
@@ -486,7 +471,7 @@ extension DockContentView {
         dismissTileLabel()
         setPressed(identifier)
         guard magnificationAvailable else { return }
-        request(.magnified)
+        requestMagnification(true)
         cursor = pointerLocation() ?? point
         magnificationTarget = 1
         startFrameLink()

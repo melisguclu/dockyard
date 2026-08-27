@@ -7,9 +7,12 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     public let identity: DisplayIdentity
     public private(set) var displayID: CGDirectDisplayID
     public private(set) var isVisible = false
+    public var onTrashChanged: (@MainActor () -> Void)?
+    public var revealState: DockRevealState { reveal.state }
 
     private let panel: DockPanel
     private let contentView: DockContentView
+    private let reveal: DockRevealController
     private let iconProvider: IconProvider
     private let appMenuStore: AppMenuStore?
     private let minimizedWindowStore: MinimizedWindowStore?
@@ -38,9 +41,13 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         panel = DockPanel.make()
         contentView = DockContentView(frame: .zero)
         contentView.metrics = metrics
+        reveal = DockRevealController(panel: panel)
         super.init()
         contentView.delegate = self
         panel.contentView = contentView
+        reveal.applyFrame = { [weak self] frame in self?.seat(frame) }
+        reveal.didReveal = { [weak self] in self?.contentView.refreshPointerPresence() }
+        reveal.didHide = { [weak self] in self?.contentView.stopMagnifying() }
     }
 
     deinit {
@@ -99,21 +106,36 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         contentView.refreshIcons()
     }
 
+    public func setCoveredByFullScreen(_ covered: Bool) {
+        reveal.setCoveredByFullScreen(covered)
+    }
+
+    public func setLaunching(_ identifiers: Set<DockTileID>) {
+        contentView.setLaunching(identifiers)
+    }
+
+    public func setAccessibilityAppearance(_ value: DockAccessibilityAppearance) {
+        contentView.accessibilityAppearance = value
+    }
+
     public func show() {
         guard !isVisible else { return }
         isVisible = true
         panel.orderFrontRegardless()
+        reveal.setVisible(true)
     }
 
     public func hide() {
         guard isVisible else { return }
         isVisible = false
+        reveal.setVisible(false)
         contentView.stopMagnifying()
         contentView.dismissTileLabel()
         panel.orderOut(nil)
     }
 
     public func tearDown() {
+        reveal.tearDown()
         for task in iconTasks.values {
             task.cancel()
         }
@@ -170,11 +192,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     ) {
         switch command {
         case .activate:
-            if case .minimizedWindow = tile.kind {
-                minimizedWindowStore?.restore(tile.id)
-            } else {
-                activator.activateOrLaunch(tile)
-            }
+            activate(tile)
         case .showInFinder:
             guard let url = tile.url else { return }
             activator.reveal(url)
@@ -189,6 +207,8 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         case .open:
             guard let url = tile.url else { return }
             activator.open(url)
+        case .dockSettings:
+            activator.openDockSettings()
         case .appMenu(let command):
             appMenuStore?.perform(command, on: tile)
         case .window(let window):
@@ -196,9 +216,30 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         }
     }
 
+    private func activate(_ tile: DockTile) {
+        if case .minimizedWindow = tile.kind {
+            minimizedWindowStore?.restore(tile.id)
+        } else {
+            activator.activateOrLaunch(tile)
+        }
+    }
+
     public func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile) {
-        guard case .application = tile.kind, let applicationURL = tile.url else { return }
-        activator.open(urls: urls, withApplicationAt: applicationURL)
+        switch tile.kind {
+        case .application:
+            guard let applicationURL = tile.url else { return }
+            activator.open(urls: urls, withApplicationAt: applicationURL)
+        case .trash:
+            guard activator.moveToTrash(urls) else { return }
+            onTrashChanged?()
+        default:
+            break
+        }
+    }
+
+    public func dockContentViewPointerDidLeave(_ view: DockContentView) {
+        contentView.dismissTileLabel()
+        reveal.pointerDidLeave()
     }
 
     public func dockContentView(_ view: DockContentView, needsIconFor tile: DockTile, pixelSize: Int) {
@@ -221,14 +262,21 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
 
     private func updatePanelFrame() {
         guard !screenFrame.isEmpty else { return }
-        let frame = DockGeometry.panelFrame(
-            screenFrame: screenFrame,
-            tiles: snapshot.tiles,
+        reveal.update(
             appearance: snapshot.appearance,
-            metrics: contentView.metrics,
-            measuredEdgeMargin: contentView.measuredEdgeMargin,
-            extent: extent
+            screenFrame: screenFrame,
+            revealedFrame: DockGeometry.panelFrame(
+                screenFrame: screenFrame,
+                tiles: snapshot.tiles,
+                appearance: snapshot.appearance,
+                metrics: contentView.metrics,
+                measuredEdgeMargin: contentView.measuredEdgeMargin,
+                extent: extent
+            )
         )
+    }
+
+    private func seat(_ frame: CGRect) {
         guard frame != panel.frame else { return }
         panel.setFrame(frame, display: false)
         contentView.frame = CGRect(origin: .zero, size: frame.size)

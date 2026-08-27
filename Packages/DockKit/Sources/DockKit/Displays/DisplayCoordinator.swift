@@ -11,9 +11,11 @@ public protocol DisplayPolicyProviding: AnyObject {
 @MainActor
 public final class DisplayCoordinator {
     public static let poolGracePeriod: Duration = .seconds(120)
+    public static let spaceSettleDelay: Duration = .milliseconds(350)
 
     public weak var policy: (any DisplayPolicyProviding)?
     public var onDisplaysChanged: (@MainActor ([DisplayInfo]) -> Void)?
+    public var onTrashChanged: (@MainActor () -> Void)?
     public private(set) var activeIdentities: [DisplayIdentity] = []
 
     private let iconProvider: IconProvider
@@ -26,6 +28,11 @@ public final class DisplayCoordinator {
     private var snapshot: DockSnapshot = .empty
     private var isReconfiguring = false
     private var dayChangeObserver: NSObjectProtocol?
+    private var spaceObserver: NSObjectProtocol?
+    private var accessibilityObserver: NSObjectProtocol?
+    private var spaceSettleTask: Task<Void, Never>?
+    private var coveredDisplays: Set<CGDirectDisplayID> = []
+    private var launching: Set<DockTileID> = []
 
     public init(
         iconProvider: IconProvider,
@@ -45,6 +52,45 @@ public final class DisplayCoordinator {
             MainActor.assumeIsolated {
                 self?.refreshDynamicIcons()
             }
+        }
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.spaceDidChange()
+            }
+        }
+        accessibilityObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.refreshAccessibilityAppearance()
+            }
+        }
+    }
+
+    public func setLaunching(_ identifiers: Set<DockTileID>) {
+        guard launching != identifiers else { return }
+        launching = identifiers
+        for controller in controllers.values {
+            controller.setLaunching(identifiers)
+        }
+    }
+
+    public func refreshAccessibilityAppearance() {
+        let value = DockAccessibilityAppearance.current
+        DockLog.displays.debug(
+            "Accessibility appearance: reduceTransparency \(value.reduceTransparency, privacy: .public)"
+        )
+        for controller in controllers.values {
+            controller.setAccessibilityAppearance(value)
+        }
+        for controller in pooled.values {
+            controller.setAccessibilityAppearance(value)
         }
     }
 
@@ -80,6 +126,7 @@ public final class DisplayCoordinator {
             : nil
         let maximumScale = DisplayEnumerator.maximumBackingScaleFactor()
         let edgeMargin = SystemDockLocator.edgeMargin(snapshot: snapshot, metrics: metrics)
+        coveredDisplays = FullScreenDetector.currentlyCoveredDisplays(displays)
 
         var wanted: [DisplayIdentity] = []
 
@@ -97,6 +144,8 @@ public final class DisplayCoordinator {
                 measuredEdgeMargin: edgeMargin
             )
             controller.apply(snapshot)
+            controller.setCoveredByFullScreen(coveredDisplays.contains(display.displayID))
+            controller.setLaunching(launching)
             controller.show()
         }
 
@@ -116,6 +165,16 @@ public final class DisplayCoordinator {
             NotificationCenter.default.removeObserver(dayChangeObserver)
             self.dayChangeObserver = nil
         }
+        if let spaceObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver)
+            self.spaceObserver = nil
+        }
+        if let accessibilityObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(accessibilityObserver)
+            self.accessibilityObserver = nil
+        }
+        spaceSettleTask?.cancel()
+        spaceSettleTask = nil
         for task in evictionTasks.values {
             task.cancel()
         }
@@ -128,6 +187,28 @@ public final class DisplayCoordinator {
             controller.tearDown()
         }
         pooled.removeAll()
+    }
+
+    private func spaceDidChange() {
+        refreshFullScreenCoverage()
+        spaceSettleTask?.cancel()
+        spaceSettleTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.spaceSettleDelay)
+            guard !Task.isCancelled, let self else { return }
+            self.spaceSettleTask = nil
+            self.refreshFullScreenCoverage()
+        }
+    }
+
+    public func refreshFullScreenCoverage() {
+        guard !isReconfiguring else { return }
+        let covered = FullScreenDetector.currentlyCoveredDisplays(DisplayEnumerator.current())
+        guard covered != coveredDisplays else { return }
+        coveredDisplays = covered
+        DockLog.displays.debug("Full-screen displays: \(covered.count, privacy: .public)")
+        for controller in controllers.values {
+            controller.setCoveredByFullScreen(covered.contains(controller.displayID))
+        }
     }
 
     private func controller(for display: DisplayInfo) -> DockPanelController {
@@ -147,6 +228,7 @@ public final class DisplayCoordinator {
             minimizedWindowStore: minimizedWindowStore,
             metrics: metrics
         )
+        created.onTrashChanged = { [weak self] in self?.onTrashChanged?() }
         controllers[display.identity] = created
         return created
     }
