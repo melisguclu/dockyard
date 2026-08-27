@@ -6,6 +6,10 @@ public final class DockPanel: NSPanel {
     override public var canBecomeMain: Bool { false }
     override public var acceptsFirstResponder: Bool { false }
 
+    override public func constrainFrameRect(_ frameRect: NSRect, to screen: NSScreen?) -> NSRect {
+        frameRect
+    }
+
     public static func make() -> DockPanel {
         let panel = DockPanel(
             contentRect: .zero,
