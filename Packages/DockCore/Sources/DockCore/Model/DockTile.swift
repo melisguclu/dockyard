@@ -99,6 +99,15 @@ public struct DockTile: Sendable, Equatable, Identifiable {
         }
     }
 
+    public var providesMenu: Bool {
+        switch kind {
+        case .spacer:
+            return false
+        default:
+            return true
+        }
+    }
+
     public var occupiesTileSlot: Bool {
         switch kind {
         case .separator, .spacer:

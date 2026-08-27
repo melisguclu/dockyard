@@ -9,6 +9,7 @@ public enum DockTileMenuCommand: Sendable, Equatable {
     case unhide
     case quit
     case forceQuit
+    case dockSettings
     case appMenu(AppMenuCommand)
     case window(AppWindowEntry)
 }
@@ -50,7 +51,9 @@ public enum DockTileMenuBuilder {
             return [.command(.open, title: "Open")]
         case .minimizedWindow:
             return [.command(.activate, title: "Show")]
-        case .separator, .spacer:
+        case .separator:
+            return [.command(.dockSettings, title: "Dock Settings…")]
+        case .spacer:
             return []
         }
     }

@@ -3,6 +3,8 @@ import Foundation
 
 @MainActor
 public struct ApplicationActivator {
+    public static let dockSettingsPane = "x-apple.systempreferences:com.apple.Desktop-Settings.extension"
+
     public init() {}
 
     public func activateOrLaunch(_ tile: DockTile) {
@@ -45,6 +47,11 @@ public struct ApplicationActivator {
             }
         }
         return trashed
+    }
+
+    public func openDockSettings() {
+        guard let url = URL(string: Self.dockSettingsPane) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     public func openTrash() {

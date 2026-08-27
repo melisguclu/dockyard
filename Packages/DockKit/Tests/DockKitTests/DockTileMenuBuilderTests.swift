@@ -254,4 +254,21 @@ extension DockTileMenuBuilderTests {
 
         #expect(titles(items) == ["Show", "Hide", "—", "Show in Finder", "—", "Quit", "Force Quit"])
     }
+
+    @Test("The separator offers Dock Settings and nothing that writes the Dock's domain")
+    func separatorOpensDockSettings() {
+        let items = DockTileMenuBuilder.items(for: TileFactory.separator)
+
+        #expect(items.count == 1)
+        #expect(items.first?.command == .dockSettings)
+        #expect(titles(items) == ["Dock Settings…"])
+    }
+
+    @Test("A spacer is the one tile with no menu at all")
+    func spacerHasNoMenu() {
+        #expect(TileFactory.separator.providesMenu)
+        #expect(TileFactory.separator.isInteractive == false)
+        #expect(TileFactory.spacer(.full).providesMenu == false)
+        #expect(DockTileMenuBuilder.items(for: TileFactory.spacer(.full)).isEmpty)
+    }
 }
