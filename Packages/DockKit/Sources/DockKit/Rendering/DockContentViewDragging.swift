@@ -13,10 +13,14 @@ extension DockContentView {
 
     override public func draggingExited(_ sender: (any NSDraggingInfo)?) {
         setDropTarget(nil)
+        setSpringTarget(nil)
     }
 
     override public func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        defer { setDropTarget(nil) }
+        defer {
+            setDropTarget(nil)
+            setSpringTarget(nil)
+        }
         guard let identifier = dropTargetIdentifier,
             let tile = snapshot.tile(with: identifier),
             let urls = fileURLs(from: sender), !urls.isEmpty
@@ -30,8 +34,10 @@ extension DockContentView {
         let point = convert(sender.draggingLocation, from: nil)
         guard let tile = tile(at: point) else {
             setDropTarget(nil)
+            setSpringTarget(nil)
             return []
         }
+        setSpringTarget(tile)
         let operation = DockDropPolicy.operation(
             for: tile,
             allowed: sender.draggingSourceOperationMask
@@ -52,6 +58,26 @@ extension DockContentView {
         dropTargetIdentifier = identifier
         if let identifier {
             tileLayers[identifier]?.setHighlighted(true)
+        }
+    }
+
+    private func setSpringTarget(_ tile: DockTile?) {
+        let candidate = tile.flatMap { DockDropPolicy.springs(on: $0) ? $0 : nil }
+        guard candidate?.id != springIdentifier else { return }
+        springTask?.cancel()
+        springTask = nil
+        springIdentifier = candidate?.id
+        guard let candidate else { return }
+
+        let settings = SpringLoadingSettings.current
+        guard settings.isEnabled else { return }
+        springTask = Task { @MainActor [weak self] in
+            if settings.delay > 0 {
+                try? await Task.sleep(for: .seconds(settings.delay))
+            }
+            guard !Task.isCancelled, let self, self.springIdentifier == candidate.id else { return }
+            self.springTask = nil
+            self.delegate?.dockContentView(self, springLoaded: candidate)
         }
     }
 

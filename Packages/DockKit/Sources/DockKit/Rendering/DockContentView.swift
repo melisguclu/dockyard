@@ -17,7 +17,7 @@ public final class DockContentView: NSView {
 
     public private(set) var snapshot: DockSnapshot = .empty
 
-    private let tileMenu = DockTileMenuController()
+    let tileMenu = DockTileMenuController()
     let tileLabel = DockTileLabelController()
     public private(set) var currentLayout: DockLayout = .empty
 
@@ -25,7 +25,7 @@ public final class DockContentView: NSView {
     private let tileContainer = DockTileContainerView()
     private let tileHost = CALayer()
     var tileLayers: [DockTileID: DockTileLayer] = [:]
-    private var cursor: CGPoint?
+    var cursor: CGPoint?
     private var pressedIdentifier: DockTileID?
     private var dimmedIdentifier: DockTileID?
     var menuIdentifier: DockTileID?
@@ -35,7 +35,7 @@ public final class DockContentView: NSView {
     private var pointerInside = false
     private var frameLink: CADisplayLink?
     private var magnification: CGFloat = 0
-    private var magnificationTarget: CGFloat = 0
+    var magnificationTarget: CGFloat = 0
     private var lastTick: CFTimeInterval = 0
     private var appliedCursor: CGPoint?
     private var appliedMagnification: CGFloat = .nan
@@ -47,6 +47,15 @@ public final class DockContentView: NSView {
     var launchingTiles: Set<DockTileID> = []
     var appliedBounce: DockLaunchBounce?
     var launchSettleTask: Task<Void, Never>?
+    var springIdentifier: DockTileID?
+    var springTask: Task<Void, Never>?
+    var keyboardIdentifier: DockTileID?
+    var wantsKeyboardFocus = false
+    var typeSelect = ""
+    var typeSelectTask: Task<Void, Never>?
+    var accessibilityProxies: [DockTileID: DockTileAccessibilityElement] = [:]
+    var accessibilityProxiesAreLive = false
+    public var onKeyboardFocusEnded: (@MainActor () -> Void)?
 
     override public init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -135,6 +144,11 @@ public final class DockContentView: NSView {
     }
 
     public func relayout() {
+        performLayout()
+        refreshAccessibilityProxies()
+    }
+
+    private func performLayout() {
         let state = DockLog.signposts.beginInterval("panel-layout")
         defer { DockLog.signposts.endInterval("panel-layout", state) }
 
@@ -245,11 +259,11 @@ public final class DockContentView: NSView {
         return currentLayout.tileFrames.reduce(currentLayout.barRect) { $0.union($1) }
     }
 
-    private func location(of event: NSEvent) -> CGPoint {
+    func location(of event: NSEvent) -> CGPoint {
         convert(event.locationInWindow, from: nil)
     }
 
-    private var magnificationAvailable: Bool {
+    var magnificationAvailable: Bool {
         snapshot.appearance.magnificationEnabled
             && snapshot.appearance.effectiveLargeSize > snapshot.appearance.tileSize
     }
@@ -341,7 +355,7 @@ extension DockContentView {
         delegate?.dockContentView(self, didActivate: tile)
     }
 
-    private func setPressed(_ identifier: DockTileID?) {
+    func setPressed(_ identifier: DockTileID?) {
         guard dimmedIdentifier != identifier else { return }
         if let previous = dimmedIdentifier {
             tileLayers[previous]?.setPressed(false)
@@ -359,7 +373,7 @@ extension DockContentView {
         stopFrameLink()
     }
 
-    private func startFrameLink() {
+    func startFrameLink() {
         guard frameLink == nil, window != nil else { return }
         let link = displayLink(target: self, selector: #selector(stepFrame(_:)))
         link.add(to: .main, forMode: .common)
@@ -424,7 +438,7 @@ extension DockContentView {
         relayout()
     }
 
-    private func pointerLocation() -> CGPoint? {
+    func pointerLocation() -> CGPoint? {
         guard let window else { return nil }
         return convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
     }
@@ -432,54 +446,24 @@ extension DockContentView {
 }
 
 extension DockContentView {
-    override public func rightMouseDown(with event: NSEvent) {
-        let point = location(of: event)
+    public func screenAnchor(for identifier: DockTileID) -> CGRect? {
         guard let window,
-            let index = DockGeometry.hitIndex(in: currentLayout, at: point),
-            index < snapshot.tiles.count
-        else { return }
-
-        let tile = snapshot.tiles[index]
-        guard tile.providesMenu else { return }
-        let screen = window.screen?.visibleFrame ?? window.frame
-        let height = screen.height - 2 * tileMenu.metrics.screenInset
-        let items = delegate?.dockContentView(self, menuItemsFor: tile, availableHeight: height) ?? []
-        guard !items.isEmpty else { return }
-
-        let anchor = window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil))
-        beginMenuSession(for: tile.id, at: point)
-        tileMenu.present(
-            DockMenuRequest(
-                items: items,
-                anchor: anchor,
-                orientation: snapshot.appearance.orientation,
-                screen: screen,
-                appearance: effectiveAppearance
-            ),
-            onSelect: { [weak self] item in
-                guard let self, let command = item.command else { return }
-                self.delegate?.dockContentView(self, didSelect: command, on: tile)
-            },
-            onDismiss: { [weak self] in
-                self?.endMenuSession()
-            }
-        )
+            let index = snapshot.tiles.firstIndex(where: { $0.id == identifier }),
+            index < currentLayout.tileFrames.count
+        else { return nil }
+        return window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil))
     }
 
-    private func beginMenuSession(for identifier: DockTileID, at point: CGPoint) {
-        menuIdentifier = identifier
-        dismissTileLabel()
-        setPressed(identifier)
-        guard magnificationAvailable else { return }
-        requestMagnification(true)
-        cursor = pointerLocation() ?? point
-        magnificationTarget = 1
-        startFrameLink()
+    public var hostScreenFrame: CGRect {
+        window?.screen?.visibleFrame ?? window?.frame ?? .zero
     }
 
-    private func endMenuSession() {
-        menuIdentifier = nil
-        setPressed(nil)
-        startFrameLink()
+    public func holdTileSession(for identifier: DockTileID) {
+        beginMenuSession(for: identifier, at: pointerLocation() ?? .zero)
+    }
+
+    public func releaseTileSession() {
+        guard menuIdentifier != nil else { return }
+        endMenuSession()
     }
 }

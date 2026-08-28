@@ -14,10 +14,19 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     private let contentView: DockContentView
     private let reveal: DockRevealController
     private let iconProvider: IconProvider
+    private let stack: DockStackController
     private let appMenuStore: AppMenuStore?
     private let minimizedWindowStore: MinimizedWindowStore?
     private let activator = ApplicationActivator()
 
+    private struct StackDismissal {
+        let identifier: DockTileID
+        let uptime: TimeInterval
+    }
+
+    public static let stackToggleWindow: TimeInterval = 0.35
+
+    private var lastStackDismissal: StackDismissal?
     private var screenFrame: CGRect = .zero
     private var extent: DockPanelExtent = .resting
     private var maximumBackingScale: CGFloat = 2
@@ -39,6 +48,7 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         self.appMenuStore = appMenuStore
         self.minimizedWindowStore = minimizedWindowStore
         panel = DockPanel.make()
+        stack = DockStackController(iconProvider: iconProvider)
         contentView = DockContentView(frame: .zero)
         contentView.metrics = metrics
         reveal = DockRevealController(panel: panel)
@@ -48,6 +58,23 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         reveal.applyFrame = { [weak self] frame in self?.seat(frame) }
         reveal.didReveal = { [weak self] in self?.contentView.refreshPointerPresence() }
         reveal.didHide = { [weak self] in self?.contentView.stopMagnifying() }
+        stack.onDismiss = { [weak self] identifier in
+            self?.contentView.releaseTileSession()
+            self?.noteStackDismissal(identifier)
+        }
+        contentView.onKeyboardFocusEnded = { [weak self] in self?.panel.allowsKeyboardFocus = false }
+    }
+
+    public func focusForKeyboard() {
+        guard isVisible else { return }
+        panel.allowsKeyboardFocus = true
+        panel.orderFrontRegardless()
+        panel.makeKey()
+        contentView.beginKeyboardFocus()
+    }
+
+    public func resignKeyboardFocus() {
+        contentView.endKeyboardFocus()
     }
 
     deinit {
@@ -128,6 +155,8 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     public func hide() {
         guard isVisible else { return }
         isVisible = false
+        contentView.endKeyboardFocus()
+        stack.dismiss()
         reveal.setVisible(false)
         contentView.stopMagnifying()
         contentView.dismissTileLabel()
@@ -135,6 +164,9 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     }
 
     public func tearDown() {
+        contentView.endKeyboardFocus()
+        contentView.onKeyboardFocusEnded = nil
+        stack.tearDown()
         reveal.tearDown()
         for task in iconTasks.values {
             task.cancel()
@@ -158,9 +190,8 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         switch tile.kind {
         case .application:
             activator.activateOrLaunch(tile)
-        case .folder:
-            guard let url = tile.url else { return }
-            activator.openFolder(url)
+        case .folder(let presentation):
+            presentStack(for: tile, presentation: presentation)
         case .url:
             guard let url = tile.url else { return }
             activator.open(url)
@@ -222,6 +253,52 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         } else {
             activator.activateOrLaunch(tile)
         }
+    }
+
+    public func dockContentView(_ view: DockContentView, springLoaded tile: DockTile) {
+        switch tile.kind {
+        case .application:
+            activator.activateOrLaunch(tile)
+        case .folder(let presentation):
+            presentStack(for: tile, presentation: presentation)
+        default:
+            break
+        }
+    }
+
+    private func noteStackDismissal(_ identifier: DockTileID?) {
+        guard let identifier else { return }
+        lastStackDismissal = StackDismissal(
+            identifier: identifier,
+            uptime: ProcessInfo.processInfo.systemUptime
+        )
+    }
+
+    private func closesStack(for tile: DockTile) -> Bool {
+        guard let last = lastStackDismissal, last.identifier == tile.id else { return false }
+        lastStackDismissal = nil
+        return ProcessInfo.processInfo.systemUptime - last.uptime < Self.stackToggleWindow
+    }
+
+    private func presentStack(for tile: DockTile, presentation: FolderPresentation) {
+        guard let url = tile.url else { return }
+        guard !closesStack(for: tile) else { return }
+        guard let anchor = contentView.screenAnchor(for: tile.id) else {
+            activator.openFolder(url)
+            return
+        }
+        contentView.holdTileSession(for: tile.id)
+        stack.present(
+            DockStackRequest(
+                identifier: tile.id,
+                url: url,
+                presentation: presentation,
+                anchor: anchor,
+                orientation: snapshot.appearance.orientation,
+                screen: contentView.hostScreenFrame,
+                appearance: contentView.effectiveAppearance
+            )
+        )
     }
 
     public func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile) {

@@ -13,4 +13,15 @@ public enum DockDropPolicy {
             return []
         }
     }
+
+    public static func springs(on tile: DockTile) -> Bool {
+        switch tile.kind {
+        case .application:
+            return tile.isRunning
+        case .folder:
+            return true
+        case .url, .trash, .minimizedWindow, .separator, .spacer:
+            return false
+        }
+    }
 }

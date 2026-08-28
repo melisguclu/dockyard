@@ -16,6 +16,7 @@ public final class DisplayCoordinator {
     public weak var policy: (any DisplayPolicyProviding)?
     public var onDisplaysChanged: (@MainActor ([DisplayInfo]) -> Void)?
     public var onTrashChanged: (@MainActor () -> Void)?
+    public var onReservedAreasChanged: (@MainActor ([ReservedArea]) -> Void)?
     public private(set) var activeIdentities: [DisplayIdentity] = []
 
     private let iconProvider: IconProvider
@@ -33,6 +34,10 @@ public final class DisplayCoordinator {
     private var spaceSettleTask: Task<Void, Never>?
     private var coveredDisplays: Set<CGDirectDisplayID> = []
     private var launching: Set<DockTileID> = []
+    private var reservationCandidates: [(displayID: CGDirectDisplayID, display: CGRect)] = []
+    private var reservationThickness: CGFloat = 0
+    private var reservationEdge: DockOrientation = .bottom
+    private var publishedAreas: [ReservedArea] = []
 
     public init(
         iconProvider: IconProvider,
@@ -79,6 +84,15 @@ public final class DisplayCoordinator {
         for controller in controllers.values {
             controller.setLaunching(identifiers)
         }
+    }
+
+    public func focusPanelForKeyboard() {
+        let pointer = NSEvent.mouseLocation
+        let underPointer = controllers.values.first { controller in
+            DisplayEnumerator.screen(for: controller.displayID)?.frame.contains(pointer) ?? false
+        }
+        guard let target = underPointer ?? controllers.values.first else { return }
+        target.focusForKeyboard()
     }
 
     public func refreshAccessibilityAppearance() {
@@ -129,6 +143,12 @@ public final class DisplayCoordinator {
         coveredDisplays = FullScreenDetector.currentlyCoveredDisplays(displays)
 
         var wanted: [DisplayIdentity] = []
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        reservationCandidates = []
+        reservationEdge = snapshot.appearance.orientation
+        reservationThickness =
+            DockGeometry.screenEdgeMargin(snapshot.appearance, metrics, measuredEdgeMargin: edgeMargin)
+            + DockGeometry.barThickness(snapshot.appearance, metrics)
 
         for display in displays {
             guard policy?.panelIsEnabled(on: display.identity) ?? true else { continue }
@@ -136,6 +156,12 @@ public final class DisplayCoordinator {
             guard let screen = DisplayEnumerator.screen(for: display.displayID) else { continue }
 
             wanted.append(display.identity)
+            reservationCandidates.append(
+                (
+                    displayID: display.displayID,
+                    display: CoordinateSpace.cocoaToCG(screen.frame, primaryHeight: primaryHeight)
+                )
+            )
             let controller = controller(for: display)
             controller.bind(
                 to: screen,
@@ -156,6 +182,7 @@ public final class DisplayCoordinator {
         }
 
         activeIdentities = wanted
+        publishReservedAreas()
         onDisplaysChanged?(displays)
         DockLog.displays.debug("Reconciled \(wanted.count, privacy: .public) dock panels")
     }
@@ -209,6 +236,27 @@ public final class DisplayCoordinator {
         for controller in controllers.values {
             controller.setCoveredByFullScreen(covered.contains(controller.displayID))
         }
+        publishReservedAreas()
+    }
+
+    private func publishReservedAreas() {
+        guard let handler = onReservedAreasChanged else { return }
+        let areas =
+            snapshot.appearance.autoHide
+            ? []
+            : reservationCandidates
+                .filter { !coveredDisplays.contains($0.displayID) }
+                .map {
+                    ReservedArea(
+                        display: $0.display,
+                        thickness: reservationThickness,
+                        edge: reservationEdge
+                    )
+                }
+        guard areas != publishedAreas else { return }
+        publishedAreas = areas
+        DockLog.displays.debug("Reserving space on \(areas.count, privacy: .public) displays")
+        handler(areas)
     }
 
     private func controller(for display: DisplayInfo) -> DockPanelController {

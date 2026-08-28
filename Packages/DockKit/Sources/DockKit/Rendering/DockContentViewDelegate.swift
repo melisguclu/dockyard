@@ -13,6 +13,7 @@ public protocol DockContentViewDelegate: AnyObject {
     ) -> [DockMenuItem]
     func dockContentView(_ view: DockContentView, didSelect command: DockTileMenuCommand, on tile: DockTile)
     func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile)
+    func dockContentView(_ view: DockContentView, springLoaded tile: DockTile)
     func dockContentView(_ view: DockContentView, needsIconFor tile: DockTile, pixelSize: Int)
     func dockContentViewPointerDidLeave(_ view: DockContentView)
 }

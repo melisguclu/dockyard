@@ -2,7 +2,9 @@ import AppKit
 import Foundation
 
 public final class DockPanel: NSPanel {
-    override public var canBecomeKey: Bool { false }
+    public var allowsKeyboardFocus = false
+
+    override public var canBecomeKey: Bool { allowsKeyboardFocus }
     override public var canBecomeMain: Bool { false }
     override public var acceptsFirstResponder: Bool { false }
 

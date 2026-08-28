@@ -24,6 +24,19 @@ enum TileFactory {
     }
 
     static let trash = DockTile(id: .builtin(.trash), kind: .trash(isEmpty: true), label: "Trash")
+
+    static func folder(
+        _ name: String = "Downloads",
+        presentation: FolderPresentation = FolderPresentation()
+    ) -> DockTile {
+        DockTile(
+            id: .path("file:///Users/tester/\(name)/"),
+            kind: .folder(presentation),
+            label: name,
+            url: URL(fileURLWithPath: "/Users/tester/\(name)", isDirectory: true),
+            isPinned: true
+        )
+    }
 }
 
 enum Displays {

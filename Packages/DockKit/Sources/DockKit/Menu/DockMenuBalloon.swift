@@ -98,7 +98,7 @@ public struct DockBalloonMetrics: Sendable, Equatable {
     }
 }
 
-public struct DockMenuBalloon: Equatable {
+public struct DockMenuBalloon: Sendable, Equatable {
     public let panelFrame: CGRect
     public let bodyRect: CGRect
     public let tailAlong: CGFloat
