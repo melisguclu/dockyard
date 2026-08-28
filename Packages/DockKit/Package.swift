@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "DockKit",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "DockKit", targets: ["DockKit"])
@@ -15,6 +16,7 @@ let package = Package(
         .target(
             name: "DockKit",
             dependencies: [.product(name: "DockCore", package: "DockCore")],
+            resources: [.process("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

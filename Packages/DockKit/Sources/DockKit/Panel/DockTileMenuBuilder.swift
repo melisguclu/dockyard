@@ -44,15 +44,15 @@ public enum DockTileMenuBuilder {
             )
         case .folder:
             return [
-                .command(.open, title: "Open"),
-                .command(.showInFinder, title: "Show in Finder"),
+                .command(.open, title: DockMenuStrings.open),
+                .command(.showInFinder, title: DockMenuStrings.showInFinder),
             ]
         case .url, .trash:
-            return [.command(.open, title: "Open")]
+            return [.command(.open, title: DockMenuStrings.open)]
         case .minimizedWindow:
-            return [.command(.activate, title: "Show")]
+            return [.command(.activate, title: DockMenuStrings.show)]
         case .separator:
-            return [.command(.dockSettings, title: "Dock Settings…")]
+            return [.command(.dockSettings, title: DockMenuStrings.dockSettings)]
         case .spacer:
             return []
         }
@@ -96,26 +96,26 @@ public enum DockTileMenuBuilder {
         if tile.isRunning {
             sections.append(
                 Section([
-                    .command(.activate, title: "Show"),
+                    .command(.activate, title: DockMenuStrings.show),
                     .command(
                         tile.isHidden ? .unhide : .hide,
-                        title: tile.isHidden ? "Show All Windows" : "Hide"
+                        title: tile.isHidden ? DockMenuStrings.showAllWindows : DockMenuStrings.hide
                     ),
                 ])
             )
         } else {
-            sections.append(Section([.command(.activate, title: "Open")]))
+            sections.append(Section([.command(.activate, title: DockMenuStrings.open)]))
         }
 
         if tile.url != nil {
-            sections.append(Section([.command(.showInFinder, title: "Show in Finder")]))
+            sections.append(Section([.command(.showInFinder, title: DockMenuStrings.showInFinder)]))
         }
 
         if tile.isRunning {
             sections.append(
                 Section([
-                    .command(.quit, title: "Quit"),
-                    .command(.forceQuit, title: "Force Quit"),
+                    .command(.quit, title: DockMenuStrings.quit),
+                    .command(.forceQuit, title: DockMenuStrings.forceQuit),
                 ])
             )
         }

@@ -4,6 +4,7 @@ import PackageDescription
 
 let package = Package(
     name: "Dockyard",
+    defaultLocalization: "en",
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "Dockyard", targets: ["Dockyard"])
@@ -21,6 +22,7 @@ let package = Package(
             ],
             path: "Dockyard",
             exclude: ["Info.plist", "Dockyard.entitlements", "Resources"],
+            resources: [.process("Localization")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         )
     ]

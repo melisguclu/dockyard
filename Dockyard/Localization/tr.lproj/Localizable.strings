@@ -1,0 +1,34 @@
+"app.name" = "Dockyard";
+
+"status.settings" = "Ayarlar…";
+"status.focusDock" = "Dock'a Odaklan";
+"status.refresh" = "Yenile";
+"status.launchAtLogin" = "Girişte Başlat";
+"status.quit" = "Dockyard'dan Çık";
+
+"settings.title" = "Dockyard Ayarları";
+"settings.tab.general" = "Genel";
+"settings.tab.displays" = "Ekranlar";
+"settings.tab.about" = "Hakkında";
+"settings.launchAtLogin" = "Dockyard'ı girişte başlat";
+"settings.suppressOnDockDisplay" = "Gerçek Dock'un olduğu ekranda Dockyard'ı gösterme";
+"settings.mirrorFooter" = "Dockyard sistem Dock'unu yansıtır, asla değiştirmez.";
+"settings.accessibility.title" = "Uygulama komutları ve küçültülmüş pencereler";
+"settings.accessibility.grant" = "İzin Ver…";
+"settings.accessibility.on" = "Açık. Küçültülmüş pencerelerin karosu var ve sağ tık uygulamanın kendi komutlarını listeliyor.";
+"settings.accessibility.off" = "Kapalı. Küçültülmüş pencere yok, karo menüleri yalnızca Dockyard'ın komutlarını gösterir.";
+"settings.accessibility.footer" = "Erişilebilirlik izni, bir karonun menüsünde uygulamanın kendi pencerelerini ve Yeni Pencere ya da Sonraki Parça gibi komutlarını listeler, her küçültülmüş pencereye Çöp Sepeti'nden önce bir karo verir ve pencereleri çubuğun dışında tutmak için gereklidir.";
+"settings.reserveSpace" = "Pencereleri çubuğun dışında tut";
+"settings.reserveSpace.footer" = "Varsayılan olarak kapalı ve Dockyard'ın pencere yöneticisi olmama ilkesine bilinçli bir istisna. macOS üçüncü taraf bir uygulamanın ekran alanı ayırmasına izin vermez; bu açıkken Dockyard, çubukla çakışan pencereleri hareket ya da boyutlandırma bittikten sonra Erişilebilirlik üzerinden yeniden boyutlandırır. Rectangle ve Magnet gibi pencere yöneticileriyle çekişir ve kapatmak pencereleri eski haline döndürmez.";
+"settings.displays.header" = "Dock gösterilecek ekranlar";
+"settings.displays.none" = "Henüz ekran algılanmadı.";
+"settings.displays.footer" = "Ekran tercihleri bağlantı kesilse de hatırlanır.";
+"settings.about.version" = "Sürüm %@ (%@)";
+"settings.about.tagline" = "Her ekranda bir dock. Ağ yok, yoklama yok, zorunlu izin yok.";
+
+"display.builtIn" = "Dahili";
+"display.external" = "Harici";
+"display.builtInName" = "Dahili Ekran";
+"display.externalName" = "Harici Ekran";
+"display.hostsSystemDock" = "şu anda sistem Dock'unu barındırıyor";
+"display.noHardwareIdentity" = "benzersiz donanım kimliği yok";

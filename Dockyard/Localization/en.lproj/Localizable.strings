@@ -1,0 +1,34 @@
+"app.name" = "Dockyard";
+
+"status.settings" = "Settings…";
+"status.focusDock" = "Focus Dock";
+"status.refresh" = "Refresh";
+"status.launchAtLogin" = "Launch at Login";
+"status.quit" = "Quit Dockyard";
+
+"settings.title" = "Dockyard Settings";
+"settings.tab.general" = "General";
+"settings.tab.displays" = "Displays";
+"settings.tab.about" = "About";
+"settings.launchAtLogin" = "Launch Dockyard at login";
+"settings.suppressOnDockDisplay" = "Hide Dockyard on the display showing the real Dock";
+"settings.mirrorFooter" = "Dockyard mirrors the system Dock and never modifies it.";
+"settings.accessibility.title" = "App commands and minimized windows";
+"settings.accessibility.grant" = "Grant Access…";
+"settings.accessibility.on" = "Enabled. Minimized windows have tiles, and a right-click lists an app's own commands.";
+"settings.accessibility.off" = "Off. No minimized windows, and tile menus show only Dockyard's own commands.";
+"settings.accessibility.footer" = "Accessibility access lets a tile's menu list the app's own windows and commands, such as New Window or Next Track, gives every minimized window a tile before the Trash, and is required for keeping windows clear of the bar.";
+"settings.reserveSpace" = "Keep windows clear of the bar";
+"settings.reserveSpace.footer" = "Off by default, and a deliberate exception to Dockyard not being a window manager. macOS does not let a third-party app reserve screen space, so with this on Dockyard resizes windows that overlap a bar through Accessibility, after a move or resize settles. It will fight window managers such as Rectangle and Magnet, and turning it off does not put the windows back.";
+"settings.displays.header" = "Show a dock on";
+"settings.displays.none" = "No displays detected yet.";
+"settings.displays.footer" = "Per-display choices are remembered across disconnects.";
+"settings.about.version" = "Version %@ (%@)";
+"settings.about.tagline" = "A dock on every display. No network, no polling, no required permissions.";
+
+"display.builtIn" = "Built-in";
+"display.external" = "External";
+"display.builtInName" = "Built-in Display";
+"display.externalName" = "External Display";
+"display.hostsSystemDock" = "currently hosts the system Dock";
+"display.noHardwareIdentity" = "no unique hardware identifier";

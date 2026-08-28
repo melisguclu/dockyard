@@ -24,7 +24,7 @@ final class SettingsWindowController {
     private func makeWindow() -> NSWindow {
         let hostingController = NSHostingController(rootView: SettingsView(preferences: preferences))
         let window = NSWindow(contentViewController: hostingController)
-        window.title = "Dockyard Settings"
+        window.title = DockyardText.string("settings.title")
         window.styleMask = [.titled, .closable, .miniaturizable]
         window.isReleasedWhenClosed = false
         window.delegate = WindowDelegate.shared

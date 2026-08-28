@@ -139,7 +139,7 @@ public enum TileOrdering {
                 DockTile(
                     id: identifier,
                     kind: .trash(isEmpty: isEmpty),
-                    label: "Trash",
+                    label: DockCoreText.string("tile.trash"),
                     url: TileEnvironment.trashDirectory
                 )
             )

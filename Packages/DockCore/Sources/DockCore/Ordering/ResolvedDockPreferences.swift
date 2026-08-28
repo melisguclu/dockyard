@@ -38,7 +38,7 @@ public struct ResolvedDockPreferences: Sendable, Equatable {
         guard let url = environment.finderURL() else { return nil }
         return DockEntry(
             kind: .application,
-            label: "Finder",
+            label: DockCoreText.string("tile.finder"),
             url: url,
             bundleIdentifier: TileEnvironment.finderBundleIdentifier
         )
