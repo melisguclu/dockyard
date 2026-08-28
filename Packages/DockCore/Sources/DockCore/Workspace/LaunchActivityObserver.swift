@@ -1,6 +1,13 @@
 import AppKit
 import Foundation
 
+public enum LaunchActivityEvent: Sendable, Equatable {
+    case willLaunch(processIdentifier: pid_t, identifier: DockTileID, isFinishedLaunching: Bool)
+    case didLaunch(processIdentifier: pid_t)
+    case didTerminate(processIdentifier: pid_t)
+    case isUp(processIdentifier: pid_t)
+}
+
 @MainActor
 public final class LaunchActivityObserver {
     public static let maximumBounce: Duration = .seconds(30)
@@ -20,6 +27,8 @@ public final class LaunchActivityObserver {
         NSWorkspace.willLaunchApplicationNotification,
         NSWorkspace.didLaunchApplicationNotification,
         NSWorkspace.didTerminateApplicationNotification,
+        NSWorkspace.didActivateApplicationNotification,
+        NSWorkspace.didUnhideApplicationNotification,
     ]
 
     public init() {}
@@ -28,22 +37,12 @@ public final class LaunchActivityObserver {
         let center = NSWorkspace.shared.notificationCenter
         for name in Self.observedNotifications {
             let observer = center.addObserver(forName: name, object: nil, queue: .main) { notification in
-                let notificationName = notification.name
                 let application =
                     notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-                let processIdentifier = application?.processIdentifier
-                let identifier = DockTileID.application(
-                    bundleIdentifier: application?.bundleIdentifier,
-                    path: application?.bundleURL?.standardizedFileURL.resolvingSymlinksInPath().path
-                )
+                let event = Self.event(for: notification.name, application: application)
                 MainActor.assumeIsolated { [weak self] in
-                    guard let self, let processIdentifier else { return }
-                    if notificationName == NSWorkspace.willLaunchApplicationNotification {
-                        guard let identifier else { return }
-                        self.begin(processIdentifier, identifier: identifier)
-                    } else {
-                        self.end(processIdentifier)
-                    }
+                    guard let self, let event else { return }
+                    self.handle(event)
                 }
             }
             observers.append(observer)
@@ -62,6 +61,50 @@ public final class LaunchActivityObserver {
         pending.removeAll()
         publish()
         onChange = nil
+    }
+
+    public func handle(_ event: LaunchActivityEvent) {
+        switch event {
+        case .willLaunch(let processIdentifier, let identifier, let isFinishedLaunching):
+            guard !isFinishedLaunching else {
+                DockLog.workspace.debug("A launch of an application that is already up does not bounce")
+                return
+            }
+            begin(processIdentifier, identifier: identifier)
+        case .didLaunch(let processIdentifier),
+            .didTerminate(let processIdentifier),
+            .isUp(let processIdentifier):
+            end(processIdentifier)
+        }
+    }
+
+    nonisolated private static func event(
+        for name: Notification.Name,
+        application: NSRunningApplication?
+    ) -> LaunchActivityEvent? {
+        guard let application else { return nil }
+        let processIdentifier = application.processIdentifier
+        switch name {
+        case NSWorkspace.willLaunchApplicationNotification:
+            guard
+                let identifier = DockTileID.application(
+                    bundleIdentifier: application.bundleIdentifier,
+                    path: application.bundleURL?.standardizedFileURL.resolvingSymlinksInPath().path
+                )
+            else { return nil }
+            return .willLaunch(
+                processIdentifier: processIdentifier,
+                identifier: identifier,
+                isFinishedLaunching: application.isFinishedLaunching
+            )
+        case NSWorkspace.didLaunchApplicationNotification:
+            return .didLaunch(processIdentifier: processIdentifier)
+        case NSWorkspace.didTerminateApplicationNotification:
+            return .didTerminate(processIdentifier: processIdentifier)
+        default:
+            guard application.isFinishedLaunching else { return nil }
+            return .isUp(processIdentifier: processIdentifier)
+        }
     }
 
     private func begin(_ processIdentifier: pid_t, identifier: DockTileID) {

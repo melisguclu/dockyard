@@ -11,27 +11,27 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
     public var revealState: DockRevealState { reveal.state }
 
     private let panel: DockPanel
-    private let contentView: DockContentView
+    let contentView: DockContentView
     private let reveal: DockRevealController
     private let iconProvider: IconProvider
-    private let stack: DockStackController
+    let stack: DockStackController
     private let appMenuStore: AppMenuStore?
     private let minimizedWindowStore: MinimizedWindowStore?
-    private let activator = ApplicationActivator()
+    let activator = ApplicationActivator()
 
-    private struct StackDismissal {
+    struct StackDismissal {
         let identifier: DockTileID
         let uptime: TimeInterval
     }
 
     public static let stackToggleWindow: TimeInterval = 0.35
 
-    private var lastStackDismissal: StackDismissal?
+    var lastStackDismissal: StackDismissal?
     private var screenFrame: CGRect = .zero
     private var extent: DockPanelExtent = .resting
     private var maximumBackingScale: CGFloat = 2
     private var requested: DockSnapshot = .empty
-    private var snapshot: DockSnapshot = .empty
+    var snapshot: DockSnapshot = .empty
     private var iconTasks: [DockTileID: Task<Void, Never>] = [:]
 
     public init(
@@ -264,41 +264,6 @@ public final class DockPanelController: NSObject, DockContentViewDelegate {
         default:
             break
         }
-    }
-
-    private func noteStackDismissal(_ identifier: DockTileID?) {
-        guard let identifier else { return }
-        lastStackDismissal = StackDismissal(
-            identifier: identifier,
-            uptime: ProcessInfo.processInfo.systemUptime
-        )
-    }
-
-    private func closesStack(for tile: DockTile) -> Bool {
-        guard let last = lastStackDismissal, last.identifier == tile.id else { return false }
-        lastStackDismissal = nil
-        return ProcessInfo.processInfo.systemUptime - last.uptime < Self.stackToggleWindow
-    }
-
-    private func presentStack(for tile: DockTile, presentation: FolderPresentation) {
-        guard let url = tile.url else { return }
-        guard !closesStack(for: tile) else { return }
-        guard let anchor = contentView.screenAnchor(for: tile.id) else {
-            activator.openFolder(url)
-            return
-        }
-        contentView.holdTileSession(for: tile.id)
-        stack.present(
-            DockStackRequest(
-                identifier: tile.id,
-                url: url,
-                presentation: presentation,
-                anchor: anchor,
-                orientation: snapshot.appearance.orientation,
-                screen: contentView.hostScreenFrame,
-                appearance: contentView.effectiveAppearance
-            )
-        )
     }
 
     public func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile) {
