@@ -12,6 +12,7 @@ public final class DockStateStore {
     public let iconProvider: IconProvider
     public let appMenuStore: AppMenuStore
     public let minimizedWindowStore: MinimizedWindowStore
+    public let screenSpaceReserver: ScreenSpaceReserver
     public let launchActivity: LaunchActivityObserver
 
     private let subject: CurrentValueSubject<DockSnapshot, Never>
@@ -38,6 +39,7 @@ public final class DockStateStore {
         self.preferencesWatcher = preferencesWatcher
         appMenuStore = AppMenuStore()
         minimizedWindowStore = MinimizedWindowStore()
+        screenSpaceReserver = ScreenSpaceReserver()
         launchActivity = LaunchActivityObserver()
         subject = CurrentValueSubject(.empty)
     }
@@ -51,11 +53,13 @@ public final class DockStateStore {
             self?.rebuild()
         }
         minimizedWindowStore.start()
+        screenSpaceReserver.start()
         launchActivity.start()
         runningObserver.start(
             onChange: { [weak self] in
                 guard let self else { return }
                 self.minimizedWindowStore.update(with: self.runningObserver.applications)
+                self.screenSpaceReserver.update(with: self.runningObserver.applications)
                 self.rebuild()
             },
             onLaunch: { [weak self] path in
@@ -68,6 +72,7 @@ public final class DockStateStore {
             self?.reloadPreferences()
         }
         minimizedWindowStore.update(with: runningObserver.applications)
+        screenSpaceReserver.update(with: runningObserver.applications)
         reloadPreferences()
     }
 
@@ -77,6 +82,7 @@ public final class DockStateStore {
         preferencesWatcher.stop()
         launchActivity.stop()
         minimizedWindowStore.stop()
+        screenSpaceReserver.stop()
     }
 
     public func reloadPreferences() {
@@ -106,6 +112,7 @@ public final class DockStateStore {
     public func refreshRunningApplications() {
         runningObserver.refresh()
         minimizedWindowStore.update(with: runningObserver.applications)
+        screenSpaceReserver.update(with: runningObserver.applications)
         rebuild()
     }
 

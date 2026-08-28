@@ -2,12 +2,18 @@ import ApplicationServices
 import Foundation
 
 @MainActor
-final class MinimizedWindowObserver {
+final class ApplicationWindowObserver {
     static let messagingTimeout: Float = 2
 
-    static let notifications = [
+    static let minimizeNotifications = [
         kAXWindowMiniaturizedNotification,
         kAXWindowDeminiaturizedNotification,
+    ]
+
+    static let geometryNotifications = [
+        kAXWindowMovedNotification,
+        kAXWindowResizedNotification,
+        kAXWindowCreatedNotification,
     ]
 
     private struct Registration {
@@ -15,8 +21,13 @@ final class MinimizedWindowObserver {
         let element: AXUIElement
     }
 
+    private let notifications: [String]
     private var registrations: [pid_t: Registration] = [:]
     private var onChange: (@MainActor (pid_t) -> Void)?
+
+    init(notifications: [String]) {
+        self.notifications = notifications
+    }
 
     func start(onChange: @escaping @MainActor (pid_t) -> Void) {
         self.onChange = onChange
@@ -48,7 +59,7 @@ final class MinimizedWindowObserver {
 
     private func register(_ processIdentifier: pid_t) -> Registration? {
         var created: AXObserver?
-        guard AXObserverCreate(processIdentifier, minimizedWindowObserverCallback, &created) == .success,
+        guard AXObserverCreate(processIdentifier, applicationWindowObserverCallback, &created) == .success,
             let observer = created
         else {
             DockLog.windows.error(
@@ -62,7 +73,7 @@ final class MinimizedWindowObserver {
         let context = Unmanaged.passUnretained(self).toOpaque()
 
         var registered = false
-        for notification in Self.notifications {
+        for notification in notifications {
             let status = AXObserverAddNotification(observer, element, notification as CFString, context)
             registered = registered || status == .success
         }
@@ -77,7 +88,7 @@ final class MinimizedWindowObserver {
     }
 
     private func deregister(_ registration: Registration) {
-        for notification in Self.notifications {
+        for notification in notifications {
             AXObserverRemoveNotification(
                 registration.observer,
                 registration.element,
@@ -92,14 +103,14 @@ final class MinimizedWindowObserver {
     }
 }
 
-private let minimizedWindowObserverCallback: AXObserverCallback = { _, element, _, context in
+private let applicationWindowObserverCallback: AXObserverCallback = { _, element, _, context in
     guard let context else { return }
     var processIdentifier: pid_t = 0
     guard AXUIElementGetPid(element, &processIdentifier) == .success else { return }
     let address = UInt(bitPattern: context)
     MainActor.assumeIsolated {
         guard let owner = UnsafeMutableRawPointer(bitPattern: address) else { return }
-        Unmanaged<MinimizedWindowObserver>.fromOpaque(owner)
+        Unmanaged<ApplicationWindowObserver>.fromOpaque(owner)
             .takeUnretainedValue()
             .report(processIdentifier)
     }

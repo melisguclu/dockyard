@@ -123,7 +123,8 @@ public enum TileValidation {
         }
         let presentation = FolderPresentation(
             displayAs: FolderStackDisplay(rawValue: entry.displayAs ?? 0) ?? .stack,
-            showAs: FolderStackViewMode(rawValue: entry.showAs ?? 0) ?? .automatic
+            showAs: FolderStackViewMode(rawValue: entry.showAs ?? 0) ?? .automatic,
+            arrangement: FolderStackArrangement(rawValue: entry.arrangement ?? 1) ?? .name
         )
         return DockEntry(
             kind: .folder(presentation),

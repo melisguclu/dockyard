@@ -50,6 +50,7 @@ struct DockPreferencesDecoderTests {
         #expect(raw.persistentOthers[0].tileType == .directory)
         #expect(raw.persistentOthers[0].displayAs == 1)
         #expect(raw.persistentOthers[0].showAs == 2)
+        #expect(raw.persistentOthers[0].arrangement == 1)
         #expect(raw.persistentOthers[2].tileType == .url)
         #expect(raw.persistentOthers[2].urlString == "https://example.com/handbook")
         #expect(raw.appearance.showRecents == false)

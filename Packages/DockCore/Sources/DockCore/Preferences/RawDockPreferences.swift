@@ -16,6 +16,7 @@ public struct RawDockEntry: Sendable, Equatable {
     public let urlString: String?
     public let displayAs: Int?
     public let showAs: Int?
+    public let arrangement: Int?
 
     public init(
         tileType: DockTileType,
@@ -23,7 +24,8 @@ public struct RawDockEntry: Sendable, Equatable {
         bundleIdentifier: String? = nil,
         urlString: String? = nil,
         displayAs: Int? = nil,
-        showAs: Int? = nil
+        showAs: Int? = nil,
+        arrangement: Int? = nil
     ) {
         self.tileType = tileType
         self.label = label
@@ -31,6 +33,7 @@ public struct RawDockEntry: Sendable, Equatable {
         self.urlString = urlString
         self.displayAs = displayAs
         self.showAs = showAs
+        self.arrangement = arrangement
     }
 }
 

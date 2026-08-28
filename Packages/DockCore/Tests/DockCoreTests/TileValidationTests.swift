@@ -110,6 +110,7 @@ struct TileValidationTests {
         if case .folder(let presentation) = resolved.others[0].kind {
             #expect(presentation.displayAs == .folder)
             #expect(presentation.showAs == .grid)
+            #expect(presentation.arrangement == .name)
         } else {
             Issue.record("expected a folder tile")
         }

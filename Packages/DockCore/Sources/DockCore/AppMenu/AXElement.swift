@@ -1,4 +1,5 @@
 import ApplicationServices
+import CoreGraphics
 import Foundation
 
 struct AXElement {
@@ -40,12 +41,43 @@ struct AXElement {
         copy(attribute) as? Bool
     }
 
+    func point(_ attribute: String) -> CGPoint? {
+        guard let boxed = boxedValue(attribute) else { return nil }
+        var result = CGPoint.zero
+        guard AXValueGetValue(boxed, .cgPoint, &result) else { return nil }
+        return result
+    }
+
+    func size(_ attribute: String) -> CGSize? {
+        guard let boxed = boxedValue(attribute) else { return nil }
+        var result = CGSize.zero
+        guard AXValueGetValue(boxed, .cgSize, &result) else { return nil }
+        return result
+    }
+
+    func set(_ attribute: String, point: CGPoint) -> Bool {
+        var value = point
+        guard let axValue = AXValueCreate(.cgPoint, &value) else { return false }
+        return AXUIElementSetAttributeValue(element, attribute as CFString, axValue) == .success
+    }
+
+    func set(_ attribute: String, size: CGSize) -> Bool {
+        var value = size
+        guard let axValue = AXValueCreate(.cgSize, &value) else { return false }
+        return AXUIElementSetAttributeValue(element, attribute as CFString, axValue) == .success
+    }
+
     func perform(_ action: String) -> Bool {
         AXUIElementPerformAction(element, action as CFString) == .success
     }
 
     func clear(_ attribute: String) -> Bool {
         AXUIElementSetAttributeValue(element, attribute as CFString, kCFBooleanFalse) == .success
+    }
+
+    private func boxedValue(_ attribute: String) -> AXValue? {
+        guard let raw = copy(attribute), CFGetTypeID(raw) == AXValueGetTypeID() else { return nil }
+        return unsafeDowncast(raw as AnyObject, to: AXValue.self)
     }
 
     private func copy(_ attribute: String) -> CFTypeRef? {

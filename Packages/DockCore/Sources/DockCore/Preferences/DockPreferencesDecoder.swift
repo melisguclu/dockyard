@@ -26,7 +26,8 @@ public enum DockPreferencesDecoder {
             bundleIdentifier: nonEmptyString(tileData["bundle-identifier"]),
             urlString: urlString(from: tileData),
             displayAs: integer(tileData["displayas"]),
-            showAs: integer(tileData["showas"])
+            showAs: integer(tileData["showas"]),
+            arrangement: integer(tileData["arrangement"])
         )
     }
 

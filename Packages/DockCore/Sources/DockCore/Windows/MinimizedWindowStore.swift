@@ -17,7 +17,9 @@ public final class MinimizedWindowStore {
 
     private let inspector: any AppMenuInspecting
     private let authorization: @MainActor () -> Bool
-    private let observer = MinimizedWindowObserver()
+    private let observer = ApplicationWindowObserver(
+        notifications: ApplicationWindowObserver.minimizeNotifications
+    )
 
     private var applications: [pid_t: RunningApplicationState] = [:]
     private var windowsByProcess: [pid_t: [MinimizedWindow]] = [:]

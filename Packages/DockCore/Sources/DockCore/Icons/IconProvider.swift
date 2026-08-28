@@ -12,6 +12,7 @@ public struct IconRequest: Sendable, Hashable {
     public enum Flavour: Sendable, Hashable {
         case application
         case folder
+        case file
         case webLocation
         case trash(isEmpty: Bool)
         case calendar(weekday: String, day: String)
@@ -86,7 +87,7 @@ public actor IconProvider {
             return trashImage(isEmpty: isEmpty) ?? genericIcon()
         case .webLocation:
             return NSWorkspace.shared.icon(for: .internetLocation)
-        case .application, .folder, .calendar, .minimizedWindow:
+        case .application, .folder, .file, .calendar, .minimizedWindow:
             guard let url = request.url, FileManager.default.fileExists(atPath: url.path) else {
                 return genericIcon()
             }
@@ -183,6 +184,17 @@ extension IconRequest {
             cacheKey: tile.url?.path ?? tile.bundleIdentifier ?? tile.label,
             url: tile.url,
             flavour: flavour,
+            pixelSize: pixelSize
+        )
+    }
+}
+
+extension IconRequest {
+    public init(entry: FolderStackEntry, pixelSize: Int) {
+        self.init(
+            cacheKey: entry.url.path,
+            url: entry.url,
+            flavour: entry.isDirectory ? .folder : .file,
             pixelSize: pixelSize
         )
     }

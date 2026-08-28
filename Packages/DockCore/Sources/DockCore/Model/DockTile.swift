@@ -31,13 +31,27 @@ public enum FolderStackViewMode: Int, Sendable, Equatable, Codable {
     case list = 3
 }
 
+public enum FolderStackArrangement: Int, Sendable, Equatable, Codable {
+    case name = 1
+    case dateAdded = 2
+    case dateModified = 3
+    case dateCreated = 4
+    case kind = 5
+}
+
 public struct FolderPresentation: Sendable, Equatable {
     public let displayAs: FolderStackDisplay
     public let showAs: FolderStackViewMode
+    public let arrangement: FolderStackArrangement
 
-    public init(displayAs: FolderStackDisplay = .stack, showAs: FolderStackViewMode = .automatic) {
+    public init(
+        displayAs: FolderStackDisplay = .stack,
+        showAs: FolderStackViewMode = .automatic,
+        arrangement: FolderStackArrangement = .name
+    ) {
         self.displayAs = displayAs
         self.showAs = showAs
+        self.arrangement = arrangement
     }
 }
 
