@@ -134,7 +134,30 @@ The Dock's `autohide` is followed rather than reproduced from a setting of Docky
 - A file dragged onto an application tile opens with that application; a file dragged onto the Trash is moved there with `FileManager.trashItem(at:resultingItemURL:)`, which needs no permission for the user's own files and preserves the Put Back information that a plain delete would lose.
 - What a tile accepts is a pure function of its kind and of the operations the drag's source is willing to allow. The Trash asks for `.move` and refuses a source that will not offer one: a source that only permits a copy is telling us the original is not ours to remove, and trashing it anyway would be the one drag-and-drop bug that cannot be undone by dragging back.
 - Trashing does not tell the Trash tile anything. The tile's empty and full states come from the entry count that the snapshot build already reads, so the drop asks for a rebuild and the new artwork arrives on the next snapshot, on every display at once.
-- Nothing else is a drop target yet. Folders in particular are not, because a stack that cannot be opened has nowhere to put what is dropped on it.
+- A folder tile is still not a drop target, even now that its stack opens. Dragging a file onto it springs the stack open and leaves the drop to the Finder window behind it: accepting the drop would mean choosing between a move and a copy on the user's behalf, which is the one file operation that cannot be undone by dragging back.
+
+## Stacks
+
+Clicking a folder tile opens the folder the way the Dock does, in a fan, a grid, or a list, rather than opening a Finder window. `FolderPresentation` was modelled long before anything rendered it: `displayas`, `showas`, and now `arrangement` are read from the Dock's own `persistent-others` entry, so a folder set to *Grid* sorted *by Kind* in the real Dock opens as a grid sorted by kind here.
+
+- **The contents are read off the main thread, once per opening.** `FolderStackReader` runs `contentsOfDirectory` inside a detached task with the resource keys the sort needs, and hands back a `FolderStackContents` value. Nothing watches the folder: a stack shows what was on disk when it was opened, which is what the Dock's own stack does between openings, and no `FSEvents` stream exists for a directory that is closed.
+- **The panel exists only while it is open.** The stack is a borderless `.nonactivatingPanel` at `.popUpMenu` level, built when the read returns and released when it closes, reusing the tile menu's own backdrop — the `.menu` material masked to the speech-balloon outline with the hairline stroked over it, tail pointing back at the tile. Grid, fan, and list all get that tail, because the real Dock's stack points at its tile too.
+- **Icons are charged to the cache that already exists.** Entries resolve through the same `IconProvider` actor and its `NSCache` cost limit as the tiles do, under a new `file` flavour, so a stack over a large folder cannot grow the resident set past the limit the icons already live under; memory pressure evicts them and they are cheap to redraw.
+- **`automatic` resolves to a fan when the folder is small enough to be one.** The Dock's own rule is not published, so the one here is stated rather than reverse-engineered: a fan when the entry count fits the screen and is at most ten, a grid otherwise. An explicit *Fan*, *Grid*, or *List* in the Dock's settings is always honoured.
+- **The fan is an approximation, and it is the one place in the app that admits it.** The real fan is a tapered sheet that narrows toward the tile; this one is the same balloon as the menu with its rows following the arc, offset along a quarter sine away from the nearer screen edge, item zero flush with the tile. The arc is what identifies a fan at a glance; the sheet's taper is not reproduced, and no arrangement of masked glass views produces it.
+- **A folder too large for the screen ends in a row that says so.** The layout computes how many rows or cells the display can hold, and when the folder does not fit — or when the reader hit its own 200-entry ceiling — the last slot becomes *N more in Finder…*, which opens the folder. The alternative was a silently truncated stack, which reads as a complete one.
+- Clicking a subfolder re-reads and re-presents in place, so a stack walks down a tree without ever leaving the balloon. Escape closes it, the arrow keys move through it, Return opens the highlighted row, and a click anywhere else dismisses it.
+- **The magnification freeze is the tile menu's, reused.** An open stack holds the cursor the layout is computed from and keeps the tile dimmed, for the same reason a menu does: the balloon is anchored to the magnified tile and the pointer has to leave the bar to reach it.
+
+**This is the one feature that can produce a permission prompt.** `~/Downloads`, `~/Documents`, and `~/Desktop` are TCC-protected, so the first time a stack over one of them is opened macOS asks. The prompt is triggered by the user's own click on their own folder, the read is a directory listing and nothing else, and a refusal degrades to a row saying the folder cannot be read. `README.md` and `Docs/SECURITY-MODEL.md` state it rather than leaving the no-prompts claim standing unqualified.
+
+## Spring loading
+
+Holding a dragged file over a tile does what it does in the Finder: a running application comes forward, a folder's stack opens, and the drag continues.
+
+- The delay and the on/off switch are the system's own, `com.apple.springing.delay` and `com.apple.springing.enabled` in the global domain, not settings of Dockyard's. Turn springing off in the Finder and the bar stops springing.
+- The timer is a cancellable `Task.sleep` started when the drag enters a tile and cancelled when it leaves, on the same grounds as the auto-hide reveal delay: user-initiated, short-lived, and gone the moment the drag is. It lives only for the duration of an active drag.
+- What springs is a narrower question than what accepts a drop. A folder springs open but takes no drop; an application springs forward only if it is already running, because the real Dock does not launch an app to receive a hover.
 
 ## Launch bounce
 
@@ -256,7 +279,7 @@ That makes minimized windows the second thing the optional Accessibility grant b
 
 ### Observation, and why there is still no timer
 
-Minimizing a window produces no `NSWorkspace` notification, so this is the first state in the app that the workspace centre cannot report. `MinimizedWindowObserver` registers one `AXObserver` per running application on `kAXWindowMiniaturized` and `kAXWindowDeminiaturized`, and adds its run loop source to the main run loop under `commonModes` so the notifications keep arriving while a tile menu is tracking. The observer set is rebuilt from the same running-applications list that already drives everything else, so an app that launches is registered and an app that exits is torn down without any separate bookkeeping.
+Minimizing a window produces no `NSWorkspace` notification, so this is the first state in the app that the workspace centre cannot report. `ApplicationWindowObserver` registers one `AXObserver` per running application on `kAXWindowMiniaturized` and `kAXWindowDeminiaturized`, and adds its run loop source to the main run loop under `commonModes` so the notifications keep arriving while a tile menu is tracking. The observer set is rebuilt from the same running-applications list that already drives everything else, so an app that launches is registered and an app that exits is torn down without any separate bookkeeping.
 
 The callback is a C function pointer and therefore captures nothing: it recovers the pid from the element with `AXUIElementGetPid`, and the store is reached through an unretained context pointer that is turned back into a reference inside `MainActor.assumeIsolated`. A notification only ever schedules a re-read of the one application it came from, through the same actor-isolated inspector the tile menus use, and one in-flight read per pid is coalesced with a pending flag so a burst of notifications collapses into two reads rather than ten.
 
@@ -288,6 +311,30 @@ The Dock orders this region by when each window was minimized. Dockyard assigns 
 
 A window destroyed while it is minimized is also not observable — `kAXUIElementDestroyed` would have to be registered per window — so its tile survives until that application next changes state. Clicking it does nothing rather than raising the wrong window, because the raise is matched on index *and* title.
 
+
+## Reserved screen space
+
+The real Dock's strip is removed from `visibleFrame`, so a maximized window stops above it. No third-party process can do that, which is why a Dockyard bar has a window pass under it, and it is the most-felt daily difference against the real Dock. **This is the one feature in the app that crosses a stated non-goal**, so it is off by default, behind its own switch in Settings, with the warning next to it.
+
+- With it on, `ScreenSpaceReserver` shrinks the windows that overlap a bar rather than reserving anything: there is no reservation API to call. `DisplayCoordinator` publishes one `ReservedArea` per bar — the display's frame, the strip's thickness, and the edge it sits on, converted once into the top-left space the Accessibility API uses — and the reserver keeps every standard window of every regular application clear of it.
+- **A window is only ever shrunk, never moved out of the way.** The edge over the bar is pulled off it and the opposite edge stays where the user put it, because a window that jumps is a window the user has to find again. A window that would end up smaller than 160 × 120 pt is left alone instead of being crushed, and a one-point overlap is inside the tolerance and costs nothing.
+- **Nothing happens mid-drag.** AX move and resize notifications arrive dozens of times a second while a window is being dragged, and acting on each of them would fight the user's own hands. The reserver collects the process identifiers it has heard from, waits 150 ms, and holds that wait open for as long as a mouse button is down, so exactly one evaluation runs per gesture, after it ends. `ScreenSpaceGeometry` — the part that decides the new frame — is a pure function over rectangles and is where the tests are.
+- **It is a second observer, not a second mechanism.** `ApplicationWindowObserver` is the same class that already carries the minimize notifications, registered again per application with `kAXWindowMoved`, `kAXWindowResized`, and `kAXWindowCreated`. Reading and writing a window's frame goes through an actor, off the main thread, with a 0.5 s messaging timeout so a hung application cannot stall the bar.
+- **Turning it off does not put the windows back.** Nothing recorded where they were, and inventing a previous size would be worse than leaving them. That is in the warning, not just here.
+- It will fight Rectangle, Magnet, and Stage Manager, each of which also believes it owns window geometry. The honest framing is that this is a window-manager feature living in an app that is not one, which is why it asks first.
+
+## Keyboard access and VoiceOver
+
+- Tiles are `CALayer`s, so there is nothing for an assistive client to find. `DockContentView` answers as a group whose children are `NSAccessibilityElement` proxies, one per tile, carrying the tile's label, a role description that says what kind of tile it is, whether the application is running or hidden, and a press action that does what a click does.
+- **The proxies are built on first ask and not before.** Nothing exists until an assistive client requests `accessibilityChildren`, at which point they are created and then kept in step with the layout; with VoiceOver off the cost is one boolean tested inside the layout pass that already runs. The `NSAccessibilityShowMenu` action is wired to the same balloon menu a right-click opens, so the tile's own commands are reachable without a mouse.
+- **Keyboard focus is granted, not assumed.** The bar's panel returns false from `canBecomeKey` at rest, because a panel that can take focus at any moment is a panel that can steal it. *Focus Dock* in the status menu flips that flag for one session: arrow keys walk the interactive tiles, Return or Space activates, the label balloon follows the focused tile, typing jumps to the tile whose name starts with what was typed, and Escape or Tab gives the focus back and returns the panel to not being focusable.
+- The real Dock uses Ctrl+F3 for this. Dockyard does not, and will not: a global shortcut means a global key monitor, which means seeing every keystroke on the machine — the one thing the Accessibility section of the security model promises the app never does. A menu item is worth less than that promise.
+
+## Localization
+
+- Every string the user can read goes through `NSLocalizedString` against its own module's bundle: menu titles and stack text in `DockKit`, the Finder and Trash tile labels in `DockCore`, and the status menu and settings in the app target. Each of the three targets carries its own `.lproj` tables, and `Scripts/make-app.sh` already copies the packages' resource bundles into the app.
+- English and Turkish ship. A missing key falls back to the key itself, which is visible in testing and harmless in release, and a missing language falls back to English.
+- The Dock's own labels are not translated by Dockyard: a tile's name comes from the Dock's `file-label` or the bundle's own display name, which macOS has already localized. The two exceptions are Finder and Trash, which the app names itself because it synthesizes those tiles.
 
 ## Geometry
 

@@ -106,6 +106,26 @@ Run every section on real hardware before tagging. Record the results in the rel
 | File dragged onto the Trash | File moves to the Trash, tile switches to full artwork on every bar | [ ] |
 | Locked or read-only file dragged onto the Trash | Refused without a crash, nothing is deleted | [ ] |
 | File dragged onto the Trash from a copy-only source | Drop is refused, original untouched | [ ] |
+| Click a pinned folder set to Fan, Grid, and List in turn | Each mode opens as the real Dock's does, tail on the tile | [ ] |
+| Click a folder set to Automatic, with few and with many items | Fan for the small one, grid for the large one | [ ] |
+| Click a folder sorted by Name, Date Added, and Kind | Order matches the real Dock's stack | [ ] |
+| Click a subfolder inside a stack | Walks into it in place, Escape closes the whole stack | [ ] |
+| Click a stack over `~/Downloads` on a clean install | The system asks once, and refusing leaves a row saying so | [ ] |
+| Click a folder with more items than the screen can hold | Last row offers the rest in Finder and opens it | [ ] |
+| Click an empty folder | One row saying so, no empty balloon | [ ] |
+| Open a stack, then click a tile on another display | Stack dismisses, the other bar is unaffected | [ ] |
+| Hold a dragged file over a running app tile | App comes forward, drag continues | [ ] |
+| Hold a dragged file over a folder tile | Stack opens, drag continues, nothing is moved | [ ] |
+| Same with springing turned off in the Finder | Nothing springs | [ ] |
+| Focus Dock from the status menu, then arrow keys and Return | Focus walks the tiles, Return opens, Escape returns focus | [ ] |
+| Type the first letters of a tile's name while the bar is focused | Focus jumps to that tile | [ ] |
+| VoiceOver on, cursor into a bar | Each tile is announced with its name and state, VO-space activates it | [ ] |
+| Keep windows clear of the bar on, window dragged over a bar | Window shrinks once, after the drag ends, and not during it | [ ] |
+| Same with the dock on the left or right | Window loses width on that edge and keeps the opposite one | [ ] |
+| Same with a window smaller than the minimum after shrinking | Window is left alone | [ ] |
+| Keep windows clear turned back off | Nothing further is resized, windows are not restored | [ ] |
+| Keep windows clear on with auto-hide on, or over a full-screen space | Nothing is reserved on that display | [ ] |
+| System language set to Turkish | Menus, Settings, and stack text are Turkish; tile names stay the system's | [ ] |
 | Space switch | Bars stay put | [ ] |
 
 ## 6. Robustness

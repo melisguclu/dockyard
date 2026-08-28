@@ -22,7 +22,7 @@ cp -R build/Dockyard.app /Applications/
 open /Applications/Dockyard.app
 ```
 
-Dockyard is a menu bar agent with no Dock icon of its own. Its status item offers Settings, Refresh, Launch at Login, and Quit.
+Dockyard is a menu bar agent with no Dock icon of its own. Its status item offers Settings, Focus Dock, Refresh, Launch at Login, and Quit.
 
 ## Features
 
@@ -35,14 +35,19 @@ Dockyard is a menu bar agent with no Dock icon of its own. Its status item offer
 - Hover a tile for its name, in the Dock's own balloon with the tail pointing back at the icon
 - Right-click a running app for its own windows, commands, and recent documents — New Window, New Incognito Window, Next Track, Xcode's recent projects — read from the app's menu bar (optional, needs Accessibility)
 - A tile for every minimized window, between the separator and the Trash, like the real Dock; click one to bring that window back (optional, needs Accessibility)
+- Click a pinned folder for its stack, as a fan, a grid, or a list, following the Dock's own *Display as*, *Show content as*, and *Sort by* settings; click a subfolder to walk down into it
 - Drag files onto an app tile to open them with that app, or onto the Trash to move them there
+- Spring loading: hold a dragged file over a running app to bring it forward, or over a folder to open its stack, on the system's own springing delay
 - Bouncing icons while an application launches, following the Dock's own `launchanim` setting
 - Right-click the separator for Dock Settings, the one item there that does not write the Dock's own preferences
 - Hides over full-screen applications the way the real Dock does, revealing again when the pointer reaches the edge
 - Follows Reduce Transparency and Increase Contrast: the bar turns opaque and takes a full-strength outline
 - Dock magnification, using the system's own `tilesize` and `largesize`
 - Auto-hide: turn hiding on and every bar hides with the real Dock, revealing on the same `autohide-delay` when the pointer reaches its display's edge and sliding back out when it leaves
-- Reads `tilesize`, `largesize`, `magnification`, `orientation`, `autohide`, `autohide-delay`, `autohide-time-modifier`, `launchanim`, `show-process-indicators`, `show-recents`, and `minimize-to-application` from the system, so it changes when the Dock changes
+- Full keyboard access and VoiceOver: *Focus Dock* in the status menu, arrow keys, type-select, Return to open, and an accessibility element per tile with its own press and show-menu actions
+- English and Turkish, with every user-visible string in a string table rather than in the source
+- Optionally keeps windows clear of the bar, off by default and behind its own warning, since macOS gives no third-party app a way to reserve screen space
+- Reads `tilesize`, `largesize`, `magnification`, `orientation`, `autohide`, `autohide-delay`, `autohide-time-modifier`, `launchanim`, `show-process-indicators`, `show-recents`, `minimize-to-application`, and a folder's `displayas`, `showas`, and `arrangement` from the system, so it changes when the Dock changes
 - Suppresses its own bar on the display currently hosting the real Dock (configurable)
 - Per-display enable and disable, remembered across disconnects by display hardware identity, not by the volatile `CGDirectDisplayID`
 - Handles display connect, disconnect, resolution change, rearrangement, sleep, and wake
@@ -66,7 +71,7 @@ Reproduce with `Scripts/benchmark.sh` while Dockyard is running. Idle-wakeup and
 ## Privacy and security
 
 - **No network code.** No `URLSession`, no sockets, no telemetry, no crash reporting, no update ping. CI greps for the whole class of APIs and fails the build on any hit.
-- **No permission prompts** in the default configuration. No Screen Recording, no Full Disk Access, no helper tool, no root. Accessibility is the one permission Dockyard can hold, it is off until you grant it from Settings, and it buys exactly two things: a tile's menu listing the app's windows and its own commands, and the minimized-window tiles. See `Docs/SECURITY-MODEL.md`.
+- **No permission prompts for anything the bar does on its own.** No Screen Recording, no Full Disk Access, no helper tool, no root. Two things can ask, both on an action you took: opening a stack over `~/Downloads`, `~/Documents`, or `~/Desktop` reaches a TCC-protected folder, so macOS asks the first time you click one — the read is a directory listing, and a refusal leaves a row saying the folder cannot be read. Accessibility is the one permission Dockyard can hold, it is off until you grant it from Settings, and it buys three things: a tile's menu listing the app's windows and its own commands, the minimized-window tiles, and the optional keeping of windows clear of the bar. See `Docs/SECURITY-MODEL.md`.
 - **No subprocesses and no AppleScript.** Dockyard never spawns a process, never calls `killall`, and never sends an Apple Event.
 - **Never writes to `com.apple.dock`** and never restarts the Dock. The only state it persists is its own preferences.
 - **Hardened Runtime** with an entitlements file that grants nothing. Verify a build yourself:
@@ -96,7 +101,11 @@ These are real and are not going away:
 - **Drag-to-reorder does not persist,** because that would mean writing `com.apple.dock` and restarting the Dock.
 - **The separator's menu carries one item, not four.** Right-click the real Dock's separator and it offers Turn Hiding On/Off, Turn Magnification On/Off, Position on Screen, and Dock Settings…. The first three write `com.apple.dock`, so Dockyard offers the fourth alone rather than an item that would silently do nothing.
 - **Reading `com.apple.dock` is not a documented contract.** Apple can change the format. The decoder is defensive and fixture-tested, and `com.apple.dock.prefchanged` has a filesystem-watcher fallback underneath it.
-- **A revealed bar does not push windows aside.** The real Dock's strip is removed from `visibleFrame` and no third-party app can do that, so a maximized window still passes under a bar that is not hiding, and under a hidden one the pointer reaches the edge through the window.
+- **A bar does not push windows aside unless you ask it to.** The real Dock's strip is removed from `visibleFrame` and no third-party app can do that, so by default a maximized window passes under the bar. *Keep windows clear of the bar* in Settings resizes the overlapping windows through Accessibility instead, after a move or resize settles; it is off by default, it will fight Rectangle, Magnet, and Stage Manager, and turning it off does not put the windows back.
+- **A stack is a snapshot of its folder, not a live view.** It reads the directory when you open it, like the real Dock's own stack, and nothing watches the folder while it is closed. A folder larger than the screen ends in a row that opens the rest in Finder, and a folder past 200 entries counts the remainder into the same row.
+- **The fan is the Dock's arc, not the Dock's sheet.** The real fan is a tapered sheet narrowing toward the tile; Dockyard draws the same balloon as a tile menu with the rows following the arc. No public API produces the taper.
+- **A folder tile takes no drop.** Dragging a file onto it springs the stack open rather than moving the file in, because accepting the drop would mean choosing between a move and a copy for you.
+- **The keyboard reaches the bar from the status menu, not from Ctrl+F3.** The real Dock's shortcut is global, and a global shortcut needs a global key monitor. Dockyard will not watch keystrokes, so *Focus Dock* is a menu item.
 - **Mirrored displays** get one bar, on the mirror-set primary, not one per mirrored display.
 
 ## How it works
@@ -112,8 +121,8 @@ Requirements: macOS 14 or later to run, Xcode 26 or later to build. The glass ba
 ```bash
 swift build                                   # the app
 Scripts/make-app.sh debug                     # assemble build/Dockyard.app
-(cd Packages/DockCore && swift test)          # 81 tests
-(cd Packages/DockKit  && swift test)          # 110 tests
+(cd Packages/DockCore && swift test)          # 105 tests
+(cd Packages/DockKit  && swift test)          # 124 tests
 Scripts/lint-forbidden-apis.sh                # the CI-enforced bans
 Scripts/calibrate.swift                       # measure the real Dock's geometry
 ```
