@@ -7,70 +7,66 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             general
-                .tabItem { Label("General", systemImage: "gearshape") }
+                .tabItem { tab("settings.tab.general", symbol: "gearshape") }
             displays
-                .tabItem { Label("Displays", systemImage: "display.2") }
+                .tabItem { tab("settings.tab.displays", symbol: "display.2") }
             about
-                .tabItem { Label("About", systemImage: "info.circle") }
+                .tabItem { tab("settings.tab.about", symbol: "info.circle") }
         }
-        .frame(width: 460, height: 320)
+        .frame(width: 480, height: 380)
     }
 
     private var general: some View {
         Form {
             Section {
-                Toggle("Launch Dockyard at login", isOn: $preferences.launchesAtLogin)
-                Toggle(
-                    "Hide Dockyard on the display showing the real Dock",
-                    isOn: $preferences.suppressOnSystemDockDisplay
-                )
+                Toggle(isOn: $preferences.launchesAtLogin) { text("settings.launchAtLogin") }
+                Toggle(isOn: $preferences.suppressOnSystemDockDisplay) { text("settings.suppressOnDockDisplay") }
             } footer: {
-                Text("Dockyard mirrors the system Dock and never modifies it.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                footnote("settings.mirrorFooter")
             }
 
             Section {
                 HStack(alignment: .firstTextBaseline) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("App commands and minimized windows")
-                        Text(appMenuStatus)
+                        text("settings.accessibility.title")
+                        text(appMenuStatus)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                     Spacer()
                     if !preferences.appMenusAuthorized {
-                        Button("Grant Access…") {
+                        Button {
                             preferences.requestAppMenuAuthorization()
+                        } label: {
+                            text("settings.accessibility.grant")
                         }
                     }
                 }
             } footer: {
-                Text(
-                    """
-                    Accessibility access lets a tile's menu list the app's own \
-                    windows and commands, such as New Window or Next Track, and \
-                    gives every minimized window a tile before the Trash.
-                    """
-                )
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+                footnote("settings.accessibility.footer")
+            }
+
+            Section {
+                Toggle(isOn: $preferences.reservesScreenSpace) { text("settings.reserveSpace") }
+                    .disabled(!preferences.appMenusAuthorized)
+            } footer: {
+                footnote("settings.reserveSpace.footer")
             }
         }
         .formStyle(.grouped)
     }
 
-    private var appMenuStatus: String {
+    private var appMenuStatus: LocalizedStringKey {
         preferences.appMenusAuthorized
-            ? "Enabled. Minimized windows have tiles, and a right-click lists an app's own commands."
-            : "Off. No minimized windows, and tile menus show only Dockyard's own commands."
+            ? "settings.accessibility.on"
+            : "settings.accessibility.off"
     }
 
     private var displays: some View {
         Form {
             Section {
                 if preferences.knownDisplays.isEmpty {
-                    Text("No displays detected yet.")
+                    text("settings.displays.none")
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(preferences.knownDisplays) { display in
@@ -85,11 +81,9 @@ struct SettingsView: View {
                     }
                 }
             } header: {
-                Text("Show a dock on")
+                text("settings.displays.header")
             } footer: {
-                Text("Per-display choices are remembered across disconnects.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                footnote("settings.displays.footer")
             }
         }
         .formStyle(.grouped)
@@ -100,12 +94,12 @@ struct SettingsView: View {
             Image(systemName: "rectangle.bottomthird.inset.filled")
                 .font(.system(size: 40, weight: .light))
                 .foregroundStyle(.secondary)
-            Text("Dockyard")
+            text("app.name")
                 .font(.title2.weight(.semibold))
             Text(versionString)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-            Text("A dock on every display. No network, no polling, no required permissions.")
+            text("settings.about.tagline")
                 .font(.footnote)
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
@@ -118,16 +112,36 @@ struct SettingsView: View {
     private var versionString: String {
         let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
-        return "Version \(version) (\(build))"
+        return String(format: DockyardText.string("settings.about.version"), version, build)
+    }
+
+    private func tab(_ key: LocalizedStringKey, symbol: String) -> some View {
+        Label {
+            text(key)
+        } icon: {
+            Image(systemName: symbol)
+        }
+    }
+
+    private func text(_ key: LocalizedStringKey) -> Text {
+        DockyardText.text(key)
+    }
+
+    private func footnote(_ key: LocalizedStringKey) -> some View {
+        DockyardText.text(key)
+            .font(.footnote)
+            .foregroundStyle(.secondary)
     }
 
     private func subtitle(for display: DisplayDescriptor) -> String {
-        var parts: [String] = [display.isBuiltIn ? "Built-in" : "External"]
+        var parts: [String] = [
+            DockyardText.string(display.isBuiltIn ? "display.builtIn" : "display.external")
+        ]
         if display.hostsSystemDock {
-            parts.append("currently hosts the system Dock")
+            parts.append(DockyardText.string("display.hostsSystemDock"))
         }
         if !display.identity.hasStableHardwareIdentity {
-            parts.append("no unique hardware identifier")
+            parts.append(DockyardText.string("display.noHardwareIdentity"))
         }
         return parts.joined(separator: " · ")
     }

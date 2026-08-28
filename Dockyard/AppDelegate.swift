@@ -32,7 +32,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         preferences.onChange = { [weak self] in
-            self?.coordinator.reconcile()
+            self?.applyPreferences()
+        }
+
+        coordinator.onReservedAreasChanged = { [weak self] areas in
+            self?.store.screenSpaceReserver.setReservedAreas(areas)
         }
 
         store.launchActivity.onChange = { [weak self] identifiers in
@@ -59,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItemController = StatusItemController(
             preferences: preferences,
             onOpenSettings: { [weak self] in self?.openSettings() },
+            onFocusDock: { [weak self] in self?.coordinator.focusPanelForKeyboard() },
             onRefresh: { [weak self] in self?.refresh() },
             onQuit: { NSApplication.shared.terminate(nil) }
         )
@@ -71,11 +76,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.preferences.refreshAppMenuAuthorization()
+                self.store.screenSpaceReserver.setEnabled(false)
+                self.store.screenSpaceReserver.setEnabled(self.preferences.reservesScreenSpace)
                 self.store.refreshRunningApplications()
             }
         }
 
         store.start()
+        applyPreferences()
         coordinator.reconcile()
 
         DockLog.signposts.endInterval("cold-start", state)
@@ -89,6 +97,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.stop()
         displayObserver.stop()
         coordinator.tearDown()
+    }
+
+    private func applyPreferences() {
+        store.screenSpaceReserver.setEnabled(preferences.reservesScreenSpace)
+        coordinator.reconcile()
     }
 
     private func refresh() {
@@ -112,7 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DisplayDescriptor(
                 identity: display.identity,
                 name: DisplayEnumerator.screen(for: display.displayID)?.localizedName
-                    ?? (display.identity.isBuiltIn ? "Built-in Display" : "External Display"),
+                    ?? DockyardText.string(
+                        display.identity.isBuiltIn ? "display.builtInName" : "display.externalName"
+                    ),
                 isBuiltIn: display.identity.isBuiltIn,
                 hostsSystemDock: SystemDockLocator.hostsSystemDock(display, appearance: appearance)
             )

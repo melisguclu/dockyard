@@ -17,11 +17,19 @@ final class Preferences: ObservableObject {
     enum Key {
         static let disabledDisplays = "disabledDisplays"
         static let suppressOnSystemDockDisplay = "suppressOnSystemDockDisplay"
+        static let reserveScreenSpace = "reserveScreenSpace"
     }
 
     @Published var suppressOnSystemDockDisplay: Bool {
         didSet {
             defaults.set(suppressOnSystemDockDisplay, forKey: Key.suppressOnSystemDockDisplay)
+            onChange?()
+        }
+    }
+
+    @Published var reservesScreenSpace: Bool {
+        didSet {
+            defaults.set(reservesScreenSpace, forKey: Key.reserveScreenSpace)
             onChange?()
         }
     }
@@ -55,6 +63,7 @@ final class Preferences: ObservableObject {
             defaults.set(true, forKey: Key.suppressOnSystemDockDisplay)
         }
         suppressOnSystemDockDisplay = defaults.bool(forKey: Key.suppressOnSystemDockDisplay)
+        reservesScreenSpace = defaults.bool(forKey: Key.reserveScreenSpace)
         disabledDisplayKeys = Set(defaults.stringArray(forKey: Key.disabledDisplays) ?? [])
         launchesAtLogin = loginItemManager.isEnabled
     }
