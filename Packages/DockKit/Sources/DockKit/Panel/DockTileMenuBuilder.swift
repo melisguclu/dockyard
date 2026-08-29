@@ -58,6 +58,21 @@ public enum DockTileMenuBuilder {
         }
     }
 
+    public static func windowItems(
+        for tile: DockTile,
+        appMenu: AppMenuSnapshot?,
+        availableHeight: CGFloat = .infinity,
+        metrics: DockMenuMetrics = .current
+    ) -> [DockMenuItem] {
+        guard case .application = tile.kind, tile.isRunning else { return [] }
+        guard let windows = appMenu?.windows, !windows.isEmpty else { return [] }
+        let section = Section(
+            windows.map { DockMenuItem.command(.window($0), title: truncated($0.title)) },
+            trimPriority: 0
+        )
+        return joined(trimmed([section], availableHeight: availableHeight, metrics: metrics))
+    }
+
     static func truncated(_ title: String) -> String {
         guard title.count > maximumTitleLength else { return title }
         let budget = maximumTitleLength - 1

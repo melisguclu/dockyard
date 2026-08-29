@@ -44,19 +44,29 @@ extension DockContentView {
         let tile = tile(at: location(of: event))
         pressedIdentifier = tile?.isInteractive == true ? tile?.id : nil
         setPressed(pressedIdentifier)
+        exposeDidPresent = false
+        guard let tile, tile.id == pressedIdentifier else { return }
+        beginExposeHold(for: tile)
     }
 
     override public func mouseDragged(with event: NSEvent) {
         guard let pressedIdentifier else { return }
         let stillInside = tile(at: location(of: event))?.id == pressedIdentifier
+        if !stillInside {
+            cancelExposeHold()
+        }
         setPressed(stillInside ? pressedIdentifier : nil)
     }
 
     override public func mouseUp(with event: NSEvent) {
+        cancelExposeHold()
         defer {
             pressedIdentifier = nil
-            setPressed(nil)
+            if !exposeDidPresent {
+                setPressed(nil)
+            }
         }
+        guard !exposeDidPresent else { return }
         guard let tile = tile(at: location(of: event)), tile.id == pressedIdentifier else { return }
         guard tile.isInteractive else { return }
         delegate?.dockContentView(self, didActivate: tile)

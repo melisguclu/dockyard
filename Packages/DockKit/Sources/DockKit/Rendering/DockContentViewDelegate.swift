@@ -11,6 +11,11 @@ public protocol DockContentViewDelegate: AnyObject {
         menuItemsFor tile: DockTile,
         availableHeight: CGFloat
     ) -> [DockMenuItem]
+    func dockContentView(
+        _ view: DockContentView,
+        windowItemsFor tile: DockTile,
+        availableHeight: CGFloat
+    ) -> [DockMenuItem]
     func dockContentView(_ view: DockContentView, didSelect command: DockTileMenuCommand, on tile: DockTile)
     func dockContentView(_ view: DockContentView, didDrop urls: [URL], on tile: DockTile)
     func dockContentView(_ view: DockContentView, springLoaded tile: DockTile)

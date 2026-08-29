@@ -2,6 +2,11 @@ import AppKit
 import DockCore
 import Foundation
 
+public enum DockMenuContent: Sendable, Equatable {
+    case tile
+    case windows
+}
+
 extension DockContentView {
     override public func rightMouseDown(with event: NSEvent) {
         let point = location(of: event)
@@ -11,7 +16,11 @@ extension DockContentView {
         presentTileMenu(for: snapshot.tiles[index], at: point)
     }
 
-    func presentTileMenu(for tile: DockTile, at point: CGPoint? = nil) {
+    func presentTileMenu(
+        for tile: DockTile,
+        at point: CGPoint? = nil,
+        content: DockMenuContent = .tile
+    ) {
         guard let window, tile.providesMenu else { return }
         guard let index = snapshot.tiles.firstIndex(where: { $0.id == tile.id }),
             index < currentLayout.tileFrames.count
@@ -19,7 +28,7 @@ extension DockContentView {
 
         let screen = window.screen?.visibleFrame ?? window.frame
         let height = screen.height - 2 * tileMenu.metrics.screenInset
-        let items = delegate?.dockContentView(self, menuItemsFor: tile, availableHeight: height) ?? []
+        let items = items(for: tile, content: content, availableHeight: height)
         guard !items.isEmpty else { return }
 
         let frame = currentLayout.tileFrames[index]
@@ -41,6 +50,19 @@ extension DockContentView {
                 self?.endMenuSession()
             }
         )
+    }
+
+    private func items(
+        for tile: DockTile,
+        content: DockMenuContent,
+        availableHeight: CGFloat
+    ) -> [DockMenuItem] {
+        switch content {
+        case .tile:
+            return delegate?.dockContentView(self, menuItemsFor: tile, availableHeight: availableHeight) ?? []
+        case .windows:
+            return delegate?.dockContentView(self, windowItemsFor: tile, availableHeight: availableHeight) ?? []
+        }
     }
 
     func beginMenuSession(for identifier: DockTileID, at point: CGPoint) {

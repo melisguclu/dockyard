@@ -48,6 +48,8 @@ public final class DockContentView: NSView {
     var launchingTiles: Set<DockTileID> = []
     var appliedBounce: DockLaunchBounce?
     var launchSettleTask: Task<Void, Never>?
+    var exposeHoldTask: Task<Void, Never>?
+    var exposeDidPresent = false
     var springIdentifier: DockTileID?
     var springTask: Task<Void, Never>?
     var keyboardIdentifier: DockTileID?
@@ -282,6 +284,10 @@ public final class DockContentView: NSView {
     static let rampEpsilon: CGFloat = 0.002
     static let maximumFrameDelta: CFTimeInterval = 0.1
     static let settleTicks = 12
+
+    public func tile(with identifier: DockTileID) -> DockTile? {
+        snapshot.tiles.first { $0.id == identifier }
+    }
 
     func tile(at point: CGPoint) -> DockTile? {
         guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
