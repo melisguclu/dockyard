@@ -10,6 +10,11 @@ final class ApplicationWindowObserver {
         kAXWindowDeminiaturizedNotification,
     ]
 
+    static let dockItemNotifications = [
+        kAXCreatedNotification,
+        kAXUIElementDestroyedNotification,
+    ]
+
     static let geometryNotifications = [
         kAXWindowMovedNotification,
         kAXWindowResizedNotification,

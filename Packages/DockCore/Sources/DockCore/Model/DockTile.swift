@@ -71,6 +71,7 @@ public struct DockTile: Sendable, Equatable, Identifiable {
     public let isActive: Bool
     public let isHidden: Bool
     public let isPinned: Bool
+    public let badge: String?
 
     public enum Kind: Sendable, Equatable {
         case application
@@ -91,7 +92,8 @@ public struct DockTile: Sendable, Equatable, Identifiable {
         isRunning: Bool = false,
         isActive: Bool = false,
         isHidden: Bool = false,
-        isPinned: Bool = false
+        isPinned: Bool = false,
+        badge: String? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -102,6 +104,23 @@ public struct DockTile: Sendable, Equatable, Identifiable {
         self.isActive = isActive
         self.isHidden = isHidden
         self.isPinned = isPinned
+        self.badge = badge
+    }
+
+    public func withBadge(_ badge: String?) -> DockTile {
+        guard badge != self.badge else { return self }
+        return DockTile(
+            id: id,
+            kind: kind,
+            label: label,
+            url: url,
+            bundleIdentifier: bundleIdentifier,
+            isRunning: isRunning,
+            isActive: isActive,
+            isHidden: isHidden,
+            isPinned: isPinned,
+            badge: badge
+        )
     }
 
     public var isInteractive: Bool {
@@ -129,6 +148,10 @@ public struct DockTile: Sendable, Equatable, Identifiable {
         default:
             return true
         }
+    }
+
+    public var locator: String? {
+        url.map(DockItem.locator(for:))
     }
 
     public static let maximumLabelLength = 256

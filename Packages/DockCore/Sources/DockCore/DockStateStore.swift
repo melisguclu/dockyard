@@ -12,6 +12,7 @@ public final class DockStateStore {
     public let iconProvider: IconProvider
     public let appMenuStore: AppMenuStore
     public let minimizedWindowStore: MinimizedWindowStore
+    public let dockItemStore: DockItemStore
     public let screenSpaceReserver: ScreenSpaceReserver
     public let launchActivity: LaunchActivityObserver
 
@@ -39,6 +40,7 @@ public final class DockStateStore {
         self.preferencesWatcher = preferencesWatcher
         appMenuStore = AppMenuStore()
         minimizedWindowStore = MinimizedWindowStore()
+        dockItemStore = DockItemStore()
         screenSpaceReserver = ScreenSpaceReserver()
         launchActivity = LaunchActivityObserver()
         subject = CurrentValueSubject(.empty)
@@ -50,9 +52,14 @@ public final class DockStateStore {
 
     public func start() {
         minimizedWindowStore.onChange = { [weak self] in
+            self?.dockItemStore.refresh()
+            self?.rebuild()
+        }
+        dockItemStore.onChange = { [weak self] in
             self?.rebuild()
         }
         minimizedWindowStore.start()
+        dockItemStore.start()
         screenSpaceReserver.start()
         launchActivity.start()
         runningObserver.start(
@@ -60,6 +67,7 @@ public final class DockStateStore {
                 guard let self else { return }
                 self.minimizedWindowStore.update(with: self.runningObserver.applications)
                 self.screenSpaceReserver.update(with: self.runningObserver.applications)
+                self.dockItemStore.refresh()
                 self.rebuild()
             },
             onLaunch: { [weak self] path in
@@ -81,6 +89,7 @@ public final class DockStateStore {
         resolveTask = nil
         preferencesWatcher.stop()
         launchActivity.stop()
+        dockItemStore.stop()
         minimizedWindowStore.stop()
         screenSpaceReserver.stop()
     }
@@ -103,6 +112,7 @@ public final class DockStateStore {
         guard !Task.isCancelled else { return }
 
         self.resolved = resolved
+        dockItemStore.refresh()
         if resolved.appearance.largeSize != previousLargeSize {
             await iconProvider.invalidateAll()
         }
@@ -113,6 +123,7 @@ public final class DockStateStore {
         runningObserver.refresh()
         minimizedWindowStore.update(with: runningObserver.applications)
         screenSpaceReserver.update(with: runningObserver.applications)
+        dockItemStore.refresh()
         rebuild()
     }
 
@@ -122,12 +133,13 @@ public final class DockStateStore {
 
         appMenuStore.update(with: runningObserver.applications)
 
-        let tiles = TileOrdering.tiles(
+        let ordered = TileOrdering.tiles(
             preferences: resolved,
             running: runningObserver.applications,
             minimizedWindows: minimizedWindowStore.windows,
             trashIsEmpty: environment.trashIsEmpty()
         )
+        let tiles = DockItemMatching.applied(dockItemStore.items, to: ordered)
 
         guard tiles != snapshot.tiles || resolved.appearance != snapshot.appearance else { return }
 

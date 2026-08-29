@@ -33,6 +33,10 @@ struct AXElement {
         copy(attribute) as? String
     }
 
+    func url(_ attribute: String) -> URL? {
+        copy(attribute) as? URL
+    }
+
     func integer(_ attribute: String) -> Int? {
         (copy(attribute) as? NSNumber)?.intValue
     }
