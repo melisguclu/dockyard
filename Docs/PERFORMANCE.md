@@ -29,6 +29,20 @@ Resident memory       37 MB
 Network sockets       0
 ```
 
+Tier 2 measured on the same machine with both displays attached, 30 tiles, one of them badged,
+Dockyard's bar on the display that does not host the real Dock, taken with `Scripts/benchmark.sh`
+at rest:
+
+```
+Idle CPU              0.0%
+Resident memory       38 MB
+Network sockets       0
+```
+
+The megabyte over the line above is the Dock's own item list, its observer, and the badge image
+cache. The Dock's list is 30 elements read on events; the badge cache holds one image per distinct
+string and size, bounded at 64 entries.
+
 Magnification, same machine, 33 seconds of sustained cursor sweeping across a bar on a
 60 Hz display, sampled by a temporary display-link probe counting vsyncs, pointer samples
 and layout passes:
@@ -89,7 +103,7 @@ item, not measured yet.
 
 ## The rules that produce these numbers
 
-1. **No timers for observation.** Every state change has a push notification. The only permitted timers are user-initiated and short-lived: the reconfiguration settle debounce, the watcher debounces, and the auto-hide reveal delay, which is a cancellable `Task.sleep` started by the pointer arriving at a screen edge and cancelled when it leaves.
+1. **No timers for observation.** Every state change has a push notification. The only permitted timers are user-initiated and short-lived: the reconfiguration settle debounce, the watcher debounces, the auto-hide reveal delay — a cancellable `Task.sleep` started by the pointer arriving at a screen edge and cancelled when it leaves — the App Exposé press-and-hold, and the 120 ms that coalesces a burst of Dock item notifications into one read.
 2. **Diff before publishing.** `didActivateApplicationNotification` fires on every app switch, and most switches do not change the rendered output. The store compares tiles and appearance and publishes nothing when they match. This single decision is responsible for most of the idle CPU budget.
 3. **Diff before rendering.** A panel receiving a snapshot mutates only the layers that changed. Stable `DockTileID` identity is what makes that possible: a tile that moves keeps its layer and is repositioned instead of being rebuilt.
 4. **Rasterize once.** Icons become a `CGImage` at `largesize × maximum backing scale` one time and are cached. Magnification is then a GPU transform on that image. No `NSImage.draw` exists in any hot path. The maximum is taken across all attached displays so a tile does not need re-rasterizing when a panel moves between a Retina and non-Retina screen.
@@ -109,7 +123,9 @@ item, not measured yet.
 18. **Spring loading is one cancellable sleep per drag, not a tracker.** `draggingUpdated` already arrives from the drag session; the only addition is a `Task.sleep` that is started when the pointer settles on a tile and cancelled when it leaves, the drag ends, or the target changes. Nothing exists between drags.
 19. **Window clearing evaluates once per gesture, never per notification.** AX move and resize notifications arrive dozens of times a second during a drag. The reserver records which process they came from, waits 150 ms, and extends that wait for as long as a mouse button is held, so one evaluation runs after the gesture instead of one per event. Reading and writing frames happens on an actor off the main thread with a 0.5 s messaging timeout. Idle cost is zero because nothing polls and no window moves at rest; the whole feature is inert until it is turned on, and its second `AXObserver` per application is registered only then.
 20. **Accessibility proxies are built when an assistive client asks, and not before.** With VoiceOver off the feature is one boolean tested inside the layout pass that already runs, and no proxy objects exist. With it on there is one small element per tile, whose frame is refreshed by the same layout pass rather than by a mechanism of its own.
-21. **Localization is a bundle lookup, not a runtime cost.** Strings resolve through `NSLocalizedString` against each module's own bundle at the point of use, and the point of use is a menu being built or a settings window being opened. Nothing on the render path reads a string table.
+21. **The Dock's own item list is read on events, never on a clock.** One walk of about thirty elements happens on an actor off the main thread, coalesced 120 ms behind the Dock's item-created and item-destroyed notifications and behind the application and preference events the app already handles, with one read in flight at a time and the result compared before it is published. The Dock's tree supports no notification for a badge change — `kAXValueChanged` returns `kAXErrorNotificationUnsupported` on the Dock's application element and on each item — so a badge is prompt rather than instant, which is the price of not adding a timer. Badges rasterize once per string at a size derived from `largesize`, so magnification stays a GPU transform.
+22. **Local reordering is a map lookup in the snapshot build, and its drag rides the existing display link.** The override is a stable sort keyed on persistence keys, run once per rebuild; with the setting off it is one `isEmpty` check. While a tile is being dragged the pointer is sampled by the same link magnification uses, and the tiles that slide out of the way are advanced by a per-frame decay rather than by an implicit animation, so a drag costs the layout pass that was already running and the link stops itself once the last residual is under half a point.
+23. **Localization is a bundle lookup, not a runtime cost.** Strings resolve through `NSLocalizedString` against each module's own bundle at the point of use, and the point of use is a menu being built or a settings window being opened. Nothing on the render path reads a string table.
 
 ## Measuring
 

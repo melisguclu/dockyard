@@ -20,7 +20,7 @@ If you use Xcode, open the folder itself (`File > Open`) rather than looking for
 
 ## The two hard rules
 
-**1. No timers for state observation.** Every state Dockyard cares about has a push notification: `com.apple.dock.prefchanged` plus a filesystem watcher for preferences, `NSWorkspace.shared.notificationCenter` for applications, `CGDisplayRegisterReconfigurationCallback` for displays. Polling is what turns a menu bar agent into a battery complaint. `Scripts/lint-forbidden-apis.sh` fails the build on `Timer.scheduledTimer`, `DispatchSourceTimer`, `NSTimer`, and `CVDisplayLink`. Debouncing with a cancellable `Task.sleep` is fine and is how the existing watchers coalesce.
+**1. No timers for state observation.** Every state Dockyard cares about has a push notification: `com.apple.dock.prefchanged` plus a filesystem watcher for preferences, `NSWorkspace.shared.notificationCenter` for applications, `CGDisplayRegisterReconfigurationCallback` for displays. Polling is what turns a menu bar agent into a battery complaint. `Scripts/lint-forbidden-apis.sh` fails the build on `Timer.scheduledTimer`, `DispatchSourceTimer`, `NSTimer`, and `CVDisplayLink`. Debouncing with a cancellable `Task.sleep` is fine and is how the existing watchers coalesce. One state genuinely has no push notification: the Dock's accessibility tree posts nothing when a tile's badge changes, so badges are re-read on the Dock and application events the app already receives. A badge that is prompt rather than instant is the price of this rule, and the right trade.
 
 **2. Nothing from the forbidden list.** Also enforced by the same script:
 

@@ -67,7 +67,11 @@ Run every section on real hardware before tagging. Record the results in the rel
 | Animate opening applications turned back on | Bounces return on the next launch | [ ] |
 | `show-recents` toggled | Recents section appears and disappears | [ ] |
 | Dock moved to another display by the cursor gesture | Suppression follows the real Dock | [ ] |
-| User restarts the Dock themselves | Dockyard recovers without a restart | [ ] |
+| User restarts the Dock themselves | Dockyard recovers without a restart, and the item list is re-read against the new pid | [ ] |
+| With Accessibility granted, the trailing region compared against the real Dock | Minimized windows and pinned folders interleave in the same order as the real Dock's | [ ] |
+| Accessibility revoked while running | Badges disappear, the inferred order takes over, nothing else changes | [ ] |
+| Stage Manager turned on, dock on the left | The strip appears on the right, no bar moves | [ ] |
+| Stage Manager turned on, dock at the bottom | The strip appears on the left, no bar moves | [ ] |
 
 ## 5. Application state matrix
 
@@ -88,6 +92,14 @@ Run every section on real hardware before tagging. Record the results in the rel
 | Right-click the separator | One item, Dock Settings, and it opens Desktop & Dock | [ ] |
 | Right-click a spacer | Nothing opens | [ ] |
 | Launch a pinned app from a Dockyard tile | The icon bounces on every bar until the app is up, then stops | [ ] |
+| An app raises a badge, e.g. Mail receives mail | The badge appears on every bar on the next Dock or app event, in the Dock's own capsule | [ ] |
+| A badge count changes and then clears | The capsule follows and disappears, with no stale image | [ ] |
+| Click and hold a running app's tile | Its window list opens; releasing does not also activate the app | [ ] |
+| Click and hold an app with no windows, or without Accessibility | Nothing opens | [ ] |
+| Drag a tile with local reordering off | Nothing moves; the click still activates on release | [ ] |
+| Drag a tile with local reordering on | It lands where dropped, every bar adopts it, the real Dock is unchanged | [ ] |
+| Drag a tile at the separator or the Trash | The drag stops at the region edge; neither moves | [ ] |
+| Relaunch after reordering | The order is restored; turning the setting off restores the Dock's own | [ ] |
 | Launch the same app from Spotlight or Finder | Same bounce, same displays | [ ] |
 | Launch with the dock on the left or right | The icon bounces away from that edge, not upwards | [ ] |
 | Launch an app while the pointer magnifies its tile | The magnified icon clears the panel, nothing is clipped | [ ] |
