@@ -17,6 +17,8 @@ public final class DockContentView: NSView {
 
     public private(set) var snapshot: DockSnapshot = .empty
 
+    public var tiles: [DockTile] { reorderedTiles ?? snapshot.tiles }
+
     let tileMenu = DockTileMenuController()
     let tileLabel = DockTileLabelController()
     public private(set) var currentLayout: DockLayout = .empty
@@ -48,6 +50,13 @@ public final class DockContentView: NSView {
     var launchingTiles: Set<DockTileID> = []
     var appliedBounce: DockLaunchBounce?
     var launchSettleTask: Task<Void, Never>?
+    var reorderIdentifier: DockTileID?
+    var reorderedTiles: [DockTile]?
+    var reorderPointer: CGPoint?
+    var reorderGrab: CGFloat = 0.5
+    var slideResiduals: [DockTileID: CGFloat] = [:]
+    var appliedTileFrames: [DockTileID: CGRect] = [:]
+    var pressOrigin: CGPoint?
     var exposeHoldTask: Task<Void, Never>?
     var exposeDidPresent = false
     var springIdentifier: DockTileID?
@@ -99,6 +108,7 @@ public final class DockContentView: NSView {
     public func apply(_ snapshot: DockSnapshot) {
         let previous = self.snapshot
         self.snapshot = snapshot
+        rebaseReorder(with: snapshot)
 
         let incoming = Set(snapshot.tiles.map(\.id))
         for (identifier, layer) in tileLayers where !incoming.contains(identifier) {
@@ -164,7 +174,7 @@ public final class DockContentView: NSView {
 
         currentLayout = DockGeometry.layout(
             DockLayoutInput(
-                tiles: snapshot.tiles,
+                tiles: tiles,
                 appearance: snapshot.appearance,
                 metrics: metrics,
                 panelSize: bounds.size,
@@ -195,13 +205,16 @@ public final class DockContentView: NSView {
         tileContainer.frame = bounds
         tileHost.frame = bounds
 
-        for (index, tile) in snapshot.tiles.enumerated() {
+        appliedTileFrames.removeAll(keepingCapacity: true)
+        for (index, tile) in tiles.enumerated() {
             guard index < currentLayout.tileFrames.count, let layer = tileLayers[tile.id] else { continue }
             if indicatorChanged {
                 layer.setIndicator(indicator)
             }
+            let frame = reorderedFrame(currentLayout.tileFrames[index], of: tile)
+            appliedTileFrames[tile.id] = frame
             layer.apply(
-                frame: currentLayout.tileFrames[index],
+                frame: frame,
                 indicatorDiameter: currentLayout.indicatorDiameter,
                 indicatorInset: currentLayout.indicatorInset,
                 orientation: snapshot.appearance.orientation
@@ -286,14 +299,14 @@ public final class DockContentView: NSView {
     static let settleTicks = 12
 
     public func tile(with identifier: DockTileID) -> DockTile? {
-        snapshot.tiles.first { $0.id == identifier }
+        tiles.first { $0.id == identifier }
     }
 
     func tile(at point: CGPoint) -> DockTile? {
         guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
-            index < snapshot.tiles.count
+            index < tiles.count
         else { return nil }
-        return snapshot.tiles[index]
+        return tiles[index]
     }
 
     private func requestIcon(for tile: DockTile) {
@@ -333,7 +346,7 @@ public final class DockContentView: NSView {
 extension DockContentView {
     public func screenAnchor(for identifier: DockTileID) -> CGRect? {
         guard let window,
-            let index = snapshot.tiles.firstIndex(where: { $0.id == identifier }),
+            let index = tiles.firstIndex(where: { $0.id == identifier }),
             index < currentLayout.tileFrames.count
         else { return nil }
         return window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil))

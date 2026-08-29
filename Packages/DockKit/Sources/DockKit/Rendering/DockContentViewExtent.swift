@@ -50,7 +50,7 @@ extension DockContentView {
     }
 
     private func bounces(_ identifier: DockTileID) -> Bool {
-        guard tileLayers[identifier] != nil, let tile = snapshot.tile(with: identifier) else { return false }
+        guard tileLayers[identifier] != nil, let tile = tile(with: identifier) else { return false }
         guard case .application = tile.kind else { return false }
         return true
     }

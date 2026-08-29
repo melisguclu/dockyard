@@ -157,6 +157,7 @@ public final class DockPanelController: NSObject {
     public func hide() {
         guard isVisible else { return }
         isVisible = false
+        contentView.cancelReorder()
         contentView.endKeyboardFocus()
         stack.dismiss()
         reveal.setVisible(false)
@@ -166,6 +167,7 @@ public final class DockPanelController: NSObject {
     }
 
     public func tearDown() {
+        contentView.cancelReorder()
         contentView.endKeyboardFocus()
         contentView.onKeyboardFocusEnded = nil
         stack.tearDown()

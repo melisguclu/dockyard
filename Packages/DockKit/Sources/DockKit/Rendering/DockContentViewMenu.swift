@@ -11,9 +11,9 @@ extension DockContentView {
     override public func rightMouseDown(with event: NSEvent) {
         let point = location(of: event)
         guard let index = DockGeometry.hitIndex(in: currentLayout, at: point),
-            index < snapshot.tiles.count
+            index < tiles.count
         else { return }
-        presentTileMenu(for: snapshot.tiles[index], at: point)
+        presentTileMenu(for: tiles[index], at: point)
     }
 
     func presentTileMenu(
@@ -22,7 +22,7 @@ extension DockContentView {
         content: DockMenuContent = .tile
     ) {
         guard let window, tile.providesMenu else { return }
-        guard let index = snapshot.tiles.firstIndex(where: { $0.id == tile.id }),
+        guard let index = tiles.firstIndex(where: { $0.id == tile.id }),
             index < currentLayout.tileFrames.count
         else { return }
 

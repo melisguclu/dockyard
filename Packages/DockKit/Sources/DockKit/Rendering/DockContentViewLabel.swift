@@ -10,13 +10,13 @@ extension DockContentView {
 
     func updateTileLabel(at point: CGPoint?) {
         guard menuIdentifier == nil, dropTargetIdentifier == nil, let point, let window,
-            let index = DockGeometry.hitIndex(in: currentLayout, at: point), index < snapshot.tiles.count
+            let index = DockGeometry.hitIndex(in: currentLayout, at: point), index < tiles.count
         else {
             dismissTileLabel()
             return
         }
 
-        let tile = snapshot.tiles[index]
+        let tile = tiles[index]
         guard tile.isInteractive, !tile.label.isEmpty else {
             dismissTileLabel()
             return

@@ -23,11 +23,11 @@ extension DockContentView {
 
     func refreshAccessibilityProxies() {
         guard accessibilityProxiesAreLive, let window else { return }
-        let live = Set(snapshot.tiles.map(\.id))
+        let live = Set(tiles.map(\.id))
         for identifier in accessibilityProxies.keys where !live.contains(identifier) {
             accessibilityProxies.removeValue(forKey: identifier)
         }
-        for (index, tile) in snapshot.tiles.enumerated() where index < currentLayout.tileFrames.count {
+        for (index, tile) in tiles.enumerated() where index < currentLayout.tileFrames.count {
             let frame = window.convertToScreen(convert(currentLayout.tileFrames[index], to: nil))
             guard let existing = accessibilityProxies[tile.id] else {
                 let element = DockTileAccessibilityElement(tile: tile, parent: self)
@@ -43,7 +43,7 @@ extension DockContentView {
     }
 
     func orderedAccessibilityProxies() -> [DockTileAccessibilityElement] {
-        snapshot.tiles.compactMap { accessibilityProxies[$0.id] }
+        tiles.compactMap { accessibilityProxies[$0.id] }
     }
 
     func announceAccessibilityFocus(_ identifier: DockTileID) {
@@ -52,12 +52,12 @@ extension DockContentView {
     }
 
     private func performAccessibilityPress(_ identifier: DockTileID) {
-        guard let tile = snapshot.tile(with: identifier), tile.isInteractive else { return }
+        guard let tile = tile(with: identifier), tile.isInteractive else { return }
         delegate?.dockContentView(self, didActivate: tile)
     }
 
     private func showAccessibilityMenu(_ identifier: DockTileID) {
-        guard let tile = snapshot.tile(with: identifier), tile.providesMenu else { return }
+        guard let tile = tile(with: identifier), tile.providesMenu else { return }
         presentTileMenu(for: tile)
     }
 }

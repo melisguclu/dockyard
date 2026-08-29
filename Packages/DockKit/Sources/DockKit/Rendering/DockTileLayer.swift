@@ -151,6 +151,10 @@ public final class DockTileLayer {
         return animation
     }
 
+    public func setLifted(_ lifted: Bool) {
+        container.zPosition = lifted ? 1 : 0
+    }
+
     public func setPressed(_ pressed: Bool) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)

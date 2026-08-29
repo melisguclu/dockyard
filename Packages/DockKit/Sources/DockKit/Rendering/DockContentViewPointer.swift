@@ -41,8 +41,10 @@ extension DockContentView {
     }
 
     override public func mouseDown(with event: NSEvent) {
-        let tile = tile(at: location(of: event))
+        let point = location(of: event)
+        let tile = tile(at: point)
         pressedIdentifier = tile?.isInteractive == true ? tile?.id : nil
+        pressOrigin = point
         setPressed(pressedIdentifier)
         exposeDidPresent = false
         guard let tile, tile.id == pressedIdentifier else { return }
@@ -50,8 +52,14 @@ extension DockContentView {
     }
 
     override public func mouseDragged(with event: NSEvent) {
+        let point = location(of: event)
+        if reorderIsActive {
+            trackReorder(at: point)
+            return
+        }
         guard let pressedIdentifier else { return }
-        let stillInside = tile(at: location(of: event))?.id == pressedIdentifier
+        guard !beginReorderIfNeeded(for: pressedIdentifier, at: point) else { return }
+        let stillInside = tile(at: point)?.id == pressedIdentifier
         if !stillInside {
             cancelExposeHold()
         }
@@ -62,9 +70,14 @@ extension DockContentView {
         cancelExposeHold()
         defer {
             pressedIdentifier = nil
+            pressOrigin = nil
             if !exposeDidPresent {
                 setPressed(nil)
             }
+        }
+        if reorderIsActive {
+            commitReorder()
+            return
         }
         guard !exposeDidPresent else { return }
         guard let tile = tile(at: location(of: event)), tile.id == pressedIdentifier else { return }
@@ -99,6 +112,7 @@ extension DockContentView {
     }
 
     private func stopFrameLink() {
+        guard !reorderIsActive, !isSliding else { return }
         frameLink?.invalidate()
         frameLink = nil
         settledTicks = 0
@@ -136,6 +150,17 @@ extension DockContentView {
         magnification += (magnificationTarget - magnification) * (1 - exp(-delta / constant))
         if abs(magnificationTarget - magnification) < Self.rampEpsilon {
             magnification = magnificationTarget
+        }
+
+        if reorderIsActive || isSliding {
+            _ = advanceSlides(delta)
+            if reorderIsActive, let pointer {
+                trackReorder(at: pointer)
+            } else {
+                relayout()
+            }
+            settledTicks = 0
+            return
         }
 
         if magnification == 0, magnificationTarget == 0 {

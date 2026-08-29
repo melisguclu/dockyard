@@ -54,7 +54,7 @@ extension DockContentView {
     }
 
     var keyboardCandidates: [DockTileID] {
-        snapshot.tiles.filter(\.isInteractive).map(\.id)
+        tiles.filter(\.isInteractive).map(\.id)
     }
 
     private func focusKeyboard(on identifier: DockTileID) {
@@ -77,13 +77,13 @@ extension DockContentView {
     }
 
     private func activateKeyboardFocus() {
-        guard let keyboardIdentifier, let tile = snapshot.tile(with: keyboardIdentifier) else { return }
+        guard let keyboardIdentifier, let tile = tile(with: keyboardIdentifier) else { return }
         endKeyboardFocus()
         delegate?.dockContentView(self, didActivate: tile)
     }
 
     private func showKeyboardMenu() {
-        guard let keyboardIdentifier, let tile = snapshot.tile(with: keyboardIdentifier) else { return }
+        guard let keyboardIdentifier, let tile = tile(with: keyboardIdentifier) else { return }
         presentTileMenu(for: tile)
     }
 
@@ -93,7 +93,7 @@ extension DockContentView {
         typeSelect += trimmed
         scheduleTypeSelectReset()
         let prefix = typeSelect
-        let match = snapshot.tiles.first {
+        let match = tiles.first {
             $0.isInteractive
                 && $0.label.range(of: prefix, options: [.caseInsensitive, .diacriticInsensitive, .anchored]) != nil
         }
@@ -128,10 +128,10 @@ extension DockContentView {
 
     private func presentKeyboardLabel(for identifier: DockTileID) {
         guard let window,
-            let index = snapshot.tiles.firstIndex(where: { $0.id == identifier }),
+            let index = tiles.firstIndex(where: { $0.id == identifier }),
             index < currentLayout.tileFrames.count
         else { return }
-        let tile = snapshot.tiles[index]
+        let tile = tiles[index]
         guard !tile.label.isEmpty else {
             dismissTileLabel()
             return

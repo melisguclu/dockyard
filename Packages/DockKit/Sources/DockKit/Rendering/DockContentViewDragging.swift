@@ -22,7 +22,7 @@ extension DockContentView {
             setSpringTarget(nil)
         }
         guard let identifier = dropTargetIdentifier,
-            let tile = snapshot.tile(with: identifier),
+            let tile = tile(with: identifier),
             let urls = fileURLs(from: sender), !urls.isEmpty
         else { return false }
         delegate?.dockContentView(self, didDrop: urls, on: tile)
