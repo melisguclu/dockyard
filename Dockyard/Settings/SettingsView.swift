@@ -1,39 +1,53 @@
 import DockCore
 import SwiftUI
 
-struct SettingsView: View {
+enum SettingsPane: CaseIterable {
+    case general
+    case displays
+    case about
+
+    var title: String {
+        switch self {
+        case .general:
+            return DockyardText.string("settings.tab.general")
+        case .displays:
+            return DockyardText.string("settings.tab.displays")
+        case .about:
+            return DockyardText.string("settings.tab.about")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general:
+            return "gearshape"
+        case .displays:
+            return "display.2"
+        case .about:
+            return "info.circle"
+        }
+    }
+}
+
+enum SettingsMetrics {
+    static let paneWidth: CGFloat = 500
+}
+
+struct GeneralSettingsView: View {
     @ObservedObject var preferences: Preferences
 
     var body: some View {
-        TabView {
-            general
-                .tabItem { tab("settings.tab.general", symbol: "gearshape") }
-            displays
-                .tabItem { tab("settings.tab.displays", symbol: "display.2") }
-            about
-                .tabItem { tab("settings.tab.about", symbol: "info.circle") }
-        }
-        .frame(width: 480, height: 380)
-    }
-
-    private var general: some View {
         Form {
             Section {
                 Toggle(isOn: $preferences.launchesAtLogin) { text("settings.launchAtLogin") }
-                Toggle(isOn: $preferences.suppressOnSystemDockDisplay) { text("settings.suppressOnDockDisplay") }
-            } footer: {
-                footnote("settings.mirrorFooter")
+                Toggle(isOn: $preferences.suppressOnSystemDockDisplay) {
+                    text("settings.suppressOnDockDisplay")
+                    text("settings.mirrorFooter")
+                }
             }
 
             Section {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        text("settings.accessibility.title")
-                        text(appMenuStatus)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    Spacer()
+                LabeledContent {
                     if !preferences.appMenusAuthorized {
                         Button {
                             preferences.requestAppMenuAuthorization()
@@ -41,34 +55,42 @@ struct SettingsView: View {
                             text("settings.accessibility.grant")
                         }
                     }
+                } label: {
+                    text("settings.accessibility.title")
+                    text(authorizationStatus)
                 }
             } footer: {
-                footnote("settings.accessibility.footer")
+                text("settings.accessibility.footer")
             }
 
             Section {
-                Toggle(isOn: $preferences.reservesScreenSpace) { text("settings.reserveSpace") }
-                    .disabled(!preferences.appMenusAuthorized)
-            } footer: {
-                footnote("settings.reserveSpace.footer")
-            }
+                Toggle(isOn: $preferences.reservesScreenSpace) {
+                    text("settings.reserveSpace")
+                    text("settings.reserveSpace.footer")
+                }
+                .disabled(!preferences.appMenusAuthorized)
 
-            Section {
-                Toggle(isOn: $preferences.reordersLocally) { text("settings.localReordering") }
-            } footer: {
-                footnote("settings.localReordering.footer")
+                Toggle(isOn: $preferences.reordersLocally) {
+                    text("settings.localReordering")
+                    text("settings.localReordering.footer")
+                }
             }
         }
         .formStyle(.grouped)
+        .frame(width: SettingsMetrics.paneWidth)
     }
 
-    private var appMenuStatus: LocalizedStringKey {
+    private var authorizationStatus: LocalizedStringKey {
         preferences.appMenusAuthorized
             ? "settings.accessibility.on"
             : "settings.accessibility.off"
     }
+}
 
-    private var displays: some View {
+struct DisplaysSettingsView: View {
+    @ObservedObject var preferences: Preferences
+
+    var body: some View {
         Form {
             Section {
                 if preferences.knownDisplays.isEmpty {
@@ -77,66 +99,19 @@ struct SettingsView: View {
                 } else {
                     ForEach(preferences.knownDisplays) { display in
                         Toggle(isOn: binding(for: display)) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(display.name)
-                                Text(subtitle(for: display))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                            Text(display.name)
+                            Text(subtitle(for: display))
                         }
                     }
                 }
             } header: {
                 text("settings.displays.header")
             } footer: {
-                footnote("settings.displays.footer")
+                text("settings.displays.footer")
             }
         }
         .formStyle(.grouped)
-    }
-
-    private var about: some View {
-        VStack(spacing: 10) {
-            Image(systemName: "rectangle.bottomthird.inset.filled")
-                .font(.system(size: 40, weight: .light))
-                .foregroundStyle(.secondary)
-            text("app.name")
-                .font(.title2.weight(.semibold))
-            Text(versionString)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            text("settings.about.tagline")
-                .font(.footnote)
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 40)
-            Spacer()
-        }
-        .padding(.top, 30)
-    }
-
-    private var versionString: String {
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
-        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
-        return String(format: DockyardText.string("settings.about.version"), version, build)
-    }
-
-    private func tab(_ key: LocalizedStringKey, symbol: String) -> some View {
-        Label {
-            text(key)
-        } icon: {
-            Image(systemName: symbol)
-        }
-    }
-
-    private func text(_ key: LocalizedStringKey) -> Text {
-        DockyardText.text(key)
-    }
-
-    private func footnote(_ key: LocalizedStringKey) -> some View {
-        DockyardText.text(key)
-            .font(.footnote)
-            .foregroundStyle(.secondary)
+        .frame(width: SettingsMetrics.paneWidth)
     }
 
     private func subtitle(for display: DisplayDescriptor) -> String {
@@ -158,4 +133,40 @@ struct SettingsView: View {
             set: { preferences.setEnabled($0, for: display.identity) }
         )
     }
+}
+
+struct AboutSettingsView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(nsImage: NSApplication.shared.applicationIconImage)
+                .resizable()
+                .frame(width: 96, height: 96)
+                .accessibilityHidden(true)
+            VStack(spacing: 4) {
+                text("app.name")
+                    .font(.title2.weight(.semibold))
+                Text(version)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            }
+            text("settings.about.tagline")
+                .font(.callout)
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.horizontal, 60)
+        .padding(.vertical, 40)
+        .frame(width: SettingsMetrics.paneWidth)
+    }
+
+    private var version: String {
+        let short = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+        return String(format: DockyardText.string("settings.about.version"), short, build)
+    }
+}
+
+private func text(_ key: LocalizedStringKey) -> Text {
+    DockyardText.text(key)
 }

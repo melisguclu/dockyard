@@ -6,7 +6,6 @@
 "status.launchAtLogin" = "Girişte Başlat";
 "status.quit" = "Dockyard'dan Çık";
 
-"settings.title" = "Dockyard Ayarları";
 "settings.tab.general" = "Genel";
 "settings.tab.displays" = "Ekranlar";
 "settings.tab.about" = "Hakkında";

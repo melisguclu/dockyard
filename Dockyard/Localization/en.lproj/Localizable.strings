@@ -6,7 +6,6 @@
 "status.launchAtLogin" = "Launch at Login";
 "status.quit" = "Quit Dockyard";
 
-"settings.title" = "Dockyard Settings";
 "settings.tab.general" = "General";
 "settings.tab.displays" = "Displays";
 "settings.tab.about" = "About";
