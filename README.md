@@ -128,7 +128,7 @@ Requirements: macOS 14 or later to run, Xcode 26 or later to build. The glass ba
 ```bash
 swift build                                   # the app
 Scripts/make-app.sh debug                     # assemble build/Dockyard.app
-(cd Packages/DockCore && swift test)          # 135 tests
+(cd Packages/DockCore && swift test)          # 136 tests
 (cd Packages/DockKit  && swift test)          # 145 tests
 Scripts/lint-forbidden-apis.sh                # the CI-enforced bans
 Scripts/calibrate.swift                       # measure the real Dock's geometry

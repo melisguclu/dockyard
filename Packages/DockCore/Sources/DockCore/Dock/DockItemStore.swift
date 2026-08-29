@@ -15,6 +15,7 @@ public final class DockItemStore {
 
     private let inspector: any DockItemInspecting
     private let authorization: @MainActor () -> Bool
+    private let resolvedProcessIdentifier: @MainActor () -> pid_t?
     private let observer = ApplicationWindowObserver(
         notifications: ApplicationWindowObserver.dockItemNotifications
     )
@@ -27,10 +28,12 @@ public final class DockItemStore {
 
     public init(
         inspector: any DockItemInspecting = DockItemInspector(),
-        authorization: @escaping @MainActor () -> Bool = { AccessibilityAuthorization.isTrusted }
+        authorization: @escaping @MainActor () -> Bool = { AccessibilityAuthorization.isTrusted },
+        processIdentifier: @escaping @MainActor () -> pid_t? = liveDockProcessIdentifier
     ) {
         self.inspector = inspector
         self.authorization = authorization
+        resolvedProcessIdentifier = processIdentifier
     }
 
     deinit {
@@ -95,12 +98,7 @@ public final class DockItemStore {
     }
 
     private func resolveProcessIdentifier() -> pid_t? {
-        let resolved =
-            NSRunningApplication
-            .runningApplications(withBundleIdentifier: Self.bundleIdentifier)
-            .first?
-            .processIdentifier
-        guard let resolved else {
+        guard let resolved = resolvedProcessIdentifier() else {
             forget()
             return nil
         }
@@ -139,4 +137,12 @@ public final class DockItemStore {
             )
         }
     }
+}
+
+@MainActor
+public func liveDockProcessIdentifier() -> pid_t? {
+    NSRunningApplication
+        .runningApplications(withBundleIdentifier: DockItemStore.bundleIdentifier)
+        .first?
+        .processIdentifier
 }

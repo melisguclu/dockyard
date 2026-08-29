@@ -31,10 +31,26 @@ struct DockItemStoreTests {
         ])
     }
 
+    @Test("A Dock that cannot be found leaves the store empty")
+    func missingDockIsInert() async {
+        let inspector = RecordingDockItemInspector(list("1"))
+        let store = DockItemStore(
+            inspector: inspector,
+            authorization: { true },
+            processIdentifier: { nil }
+        )
+
+        store.refresh()
+        await store.settle()
+
+        #expect(store.items.isEmpty)
+        #expect(await inspector.readCount() == 0)
+    }
+
     @Test("Without Accessibility the store holds nothing and reads nothing")
     func unauthorizedStoreIsInert() async {
         let inspector = RecordingDockItemInspector(list("1"))
-        let store = DockItemStore(inspector: inspector, authorization: { false })
+        let store = DockItemStore(inspector: inspector, authorization: { false }, processIdentifier: { 4242 })
 
         store.refresh()
         await store.settle()
@@ -46,7 +62,7 @@ struct DockItemStoreTests {
     @Test("A read that changes nothing publishes nothing")
     func repeatedReadsPublishOnce() async {
         let inspector = RecordingDockItemInspector(list("1"))
-        let store = DockItemStore(inspector: inspector, authorization: { true })
+        let store = DockItemStore(inspector: inspector, authorization: { true }, processIdentifier: { 4242 })
         var changes = 0
         store.onChange = { changes += 1 }
 
@@ -62,7 +78,7 @@ struct DockItemStoreTests {
     @Test("A badge that changes publishes once more")
     func badgeChangePublishes() async {
         let inspector = RecordingDockItemInspector(list("1"))
-        let store = DockItemStore(inspector: inspector, authorization: { true })
+        let store = DockItemStore(inspector: inspector, authorization: { true }, processIdentifier: { 4242 })
         var changes = 0
         store.onChange = { changes += 1 }
 
@@ -79,7 +95,7 @@ struct DockItemStoreTests {
     @Test("Overlapping refreshes collapse into one further read")
     func overlappingRefreshesCollapse() async {
         let inspector = RecordingDockItemInspector(list(nil))
-        let store = DockItemStore(inspector: inspector, authorization: { true })
+        let store = DockItemStore(inspector: inspector, authorization: { true }, processIdentifier: { 4242 })
 
         store.refresh()
         store.refresh()
