@@ -8,6 +8,10 @@ enum DockKitText {
     static func string(_ key: String, count: Int) -> String {
         String(format: NSLocalizedString(key, bundle: .module, comment: ""), count)
     }
+
+    static func string(_ key: String, value: String) -> String {
+        String(format: NSLocalizedString(key, bundle: .module, comment: ""), value)
+    }
 }
 
 enum DockMenuStrings {

@@ -11,11 +11,14 @@ public final class DockTileLayer {
     private let iconLayer = CALayer()
     private let indicatorLayer = CALayer()
     private let separatorLayer = CALayer()
+    private let badgeLayer = CALayer()
     private let highlightLayer = CALayer()
     private let pressLayer = CALayer()
     private let pressMask = CALayer()
 
     private var kind: DockTile.Kind
+    private var badge: String?
+    private var badgeAspect: CGFloat = 1
     private var isRunning = false
     private var isHidden = false
     private var showsIndicator = false
@@ -50,10 +53,15 @@ public final class DockTileLayer {
         separatorLayer.backgroundColor = NSColor.white.withAlphaComponent(0.2).cgColor
         separatorLayer.opacity = 0
         container.addSublayer(separatorLayer)
+
+        badgeLayer.contentsGravity = .resizeAspect
+        badgeLayer.opacity = 0
+        container.addSublayer(badgeLayer)
     }
 
     public func update(with tile: DockTile, showsIndicator: Bool) {
         kind = tile.kind
+        badge = tile.badge
         isRunning = tile.isRunning
         isHidden = tile.isHidden
         self.showsIndicator = showsIndicator
@@ -71,6 +79,7 @@ public final class DockTileLayer {
         }
 
         indicatorLayer.opacity = (showsIndicator && tile.isRunning) ? 1 : 0
+        badgeLayer.opacity = tile.badge == nil ? 0 : 1
     }
 
     public func setIcon(_ image: CGImage?, scale: CGFloat) {
@@ -82,6 +91,16 @@ public final class DockTileLayer {
 
     public func setIndicator(_ image: CGImage?) {
         indicatorLayer.contents = image
+    }
+
+    public func setBadge(_ image: CGImage?, scale: CGFloat) {
+        badgeLayer.contents = image
+        badgeLayer.contentsScale = max(scale, 1)
+        guard let image, image.height > 0 else {
+            badgeAspect = 1
+            return
+        }
+        badgeAspect = CGFloat(image.width) / CGFloat(image.height)
     }
 
     public func setHighlighted(_ highlighted: Bool) {
@@ -163,6 +182,9 @@ public final class DockTileLayer {
         default:
             separatorLayer.frame = .zero
         }
+
+        badgeLayer.frame =
+            badge == nil ? .zero : BadgeGeometry.frame(in: bounds, aspect: badgeAspect)
 
         let indicatorFrame: CGRect
         switch orientation {

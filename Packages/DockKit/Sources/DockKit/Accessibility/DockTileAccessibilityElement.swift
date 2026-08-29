@@ -18,6 +18,7 @@ final class DockTileAccessibilityElement: NSAccessibilityElement {
         setAccessibilityRoleDescription(roleDescription)
         setAccessibilityLabel(tile.label)
         setAccessibilityEnabled(tile.isInteractive)
+        setAccessibilityValue(Self.value(of: tile))
     }
 
     func update(with tile: DockTile) {
@@ -65,9 +66,15 @@ final class DockTileAccessibilityElement: NSAccessibilityElement {
 
     private static func value(of tile: DockTile) -> String? {
         guard case .application = tile.kind else { return nil }
+        var parts: [String] = []
         if tile.isHidden {
-            return DockKitText.string("accessibility.hidden")
+            parts.append(DockKitText.string("accessibility.hidden"))
+        } else if tile.isRunning {
+            parts.append(DockKitText.string("accessibility.running"))
         }
-        return tile.isRunning ? DockKitText.string("accessibility.running") : nil
+        if let badge = tile.badge {
+            parts.append(DockKitText.string("accessibility.badge", value: badge))
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: ", ")
     }
 }

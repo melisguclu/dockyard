@@ -20,3 +20,4 @@
 "accessibility.spacer" = "spacer";
 "accessibility.running" = "running";
 "accessibility.hidden" = "hidden";
+"accessibility.badge" = "badge %@";

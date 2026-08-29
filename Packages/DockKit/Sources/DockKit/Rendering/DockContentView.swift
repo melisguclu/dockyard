@@ -41,6 +41,7 @@ public final class DockContentView: NSView {
     var appliedMagnification: CGFloat = .nan
     var settledTicks = 0
     private var appliedIndicator: CGImage?
+    private var appliedBadges: [DockTileID: String] = [:]
     var panelExtent: DockPanelExtent = .resting
     var wantsMagnification = false
     var requestedLaunching: Set<DockTileID> = []
@@ -120,6 +121,11 @@ public final class DockContentView: NSView {
             requestIcon(for: tile)
         }
 
+        for tile in snapshot.tiles {
+            applyBadge(to: tile)
+        }
+        appliedBadges = appliedBadges.filter { incoming.contains($0.key) }
+
         if !magnificationAvailable {
             magnificationTarget = 0
         }
@@ -138,8 +144,10 @@ public final class DockContentView: NSView {
     }
 
     public func refreshIcons() {
+        appliedBadges.removeAll()
         for tile in snapshot.tiles {
             requestIcon(for: tile)
+            applyBadge(to: tile)
         }
     }
 
@@ -285,6 +293,26 @@ public final class DockContentView: NSView {
     private func requestIcon(for tile: DockTile) {
         guard tile.occupiesTileSlot else { return }
         delegate?.dockContentView(self, needsIconFor: tile, pixelSize: iconPixelSize)
+    }
+
+    private func applyBadge(to tile: DockTile) {
+        guard let layer = tileLayers[tile.id] else { return }
+        guard appliedBadges[tile.id] != tile.badge else { return }
+        guard let badge = tile.badge else {
+            appliedBadges.removeValue(forKey: tile.id)
+            layer.setBadge(nil, scale: 1)
+            return
+        }
+        appliedBadges[tile.id] = badge
+        let scale = window?.backingScaleFactor ?? 2
+        let image = BadgeRenderer.shared.badge(text: badge, pixelDiameter: badgePixelDiameter)
+        layer.setBadge(image, scale: scale)
+    }
+
+    private var badgePixelDiameter: Int {
+        let scale = window?.backingScaleFactor ?? 2
+        let diameter = BadgeGeometry.diameter(iconLength: snapshot.appearance.effectiveLargeSize)
+        return Int(max((diameter * scale).rounded(), 1))
     }
 
     private func iconNeedsRefresh(_ tile: DockTile, previous: DockSnapshot) -> Bool {
