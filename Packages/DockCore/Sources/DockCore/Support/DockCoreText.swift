@@ -2,6 +2,6 @@ import Foundation
 
 enum DockCoreText {
     static func string(_ key: String) -> String {
-        NSLocalizedString(key, bundle: .module, comment: "")
+        SystemDockStrings.string(for: key, fallback: NSLocalizedString(key, bundle: .module, comment: ""))
     }
 }

@@ -1,8 +1,9 @@
+import DockCore
 import Foundation
 
 enum DockKitText {
     static func string(_ key: String) -> String {
-        NSLocalizedString(key, bundle: .module, comment: "")
+        SystemDockStrings.string(for: key, fallback: NSLocalizedString(key, bundle: .module, comment: ""))
     }
 
     static func string(_ key: String, count: Int) -> String {
