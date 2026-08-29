@@ -40,9 +40,7 @@ public enum SystemDockLocator {
         guard !appearance.autoHide else { return nil }
         for display in DisplayEnumerator.current() {
             guard let strip = reservedStrip(of: display, appearance: appearance) else { continue }
-            let available = appearance.orientation.isVertical
-                ? display.frame.height
-                : display.frame.width
+            let available = appearance.orientation.isVertical ? display.frame.height : display.frame.width
             let hosted = appearance.withTileSize(
                 DockGeometry.fittedTileSize(
                     tiles: snapshot.tiles,
