@@ -39,6 +39,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.store.screenSpaceReserver.setReservedAreas(areas)
         }
 
+        coordinator.onReorder = { [weak self] tiles in
+            self?.preferences.recordTileOrder(tiles)
+        }
+
         store.launchActivity.onChange = { [weak self] identifiers in
             self?.coordinator.setLaunching(identifiers)
         }
@@ -101,6 +105,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func applyPreferences() {
         store.screenSpaceReserver.setEnabled(preferences.reservesScreenSpace)
+        coordinator.allowsReordering = preferences.reordersLocally
+        store.setTileOrderOverride(preferences.activeTileOrder)
         coordinator.reconcile()
     }
 

@@ -114,6 +114,14 @@ extension DockPanelController: DockContentViewDelegate {
         }
     }
 
+    public func dockContentViewAllowsReordering(_ view: DockContentView) -> Bool {
+        allowsReordering
+    }
+
+    public func dockContentView(_ view: DockContentView, didReorder tiles: [DockTile]) {
+        onReorder?(tiles)
+    }
+
     public func dockContentViewPointerDidLeave(_ view: DockContentView) {
         contentView.dismissTileLabel()
         reveal.pointerDidLeave()

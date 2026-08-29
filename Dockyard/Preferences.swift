@@ -18,6 +18,8 @@ final class Preferences: ObservableObject {
         static let disabledDisplays = "disabledDisplays"
         static let suppressOnSystemDockDisplay = "suppressOnSystemDockDisplay"
         static let reserveScreenSpace = "reserveScreenSpace"
+        static let localReordering = "localReordering"
+        static let tileOrder = "tileOrder"
     }
 
     @Published var suppressOnSystemDockDisplay: Bool {
@@ -30,6 +32,13 @@ final class Preferences: ObservableObject {
     @Published var reservesScreenSpace: Bool {
         didSet {
             defaults.set(reservesScreenSpace, forKey: Key.reserveScreenSpace)
+            onChange?()
+        }
+    }
+
+    @Published var reordersLocally: Bool {
+        didSet {
+            defaults.set(reordersLocally, forKey: Key.localReordering)
             onChange?()
         }
     }
@@ -52,6 +61,8 @@ final class Preferences: ObservableObject {
 
     var onChange: (@MainActor () -> Void)?
 
+    private(set) var tileOrder: TileOrderOverride = .empty
+
     private let defaults: UserDefaults
     private let loginItemManager: LoginItemManager
 
@@ -64,6 +75,8 @@ final class Preferences: ObservableObject {
         }
         suppressOnSystemDockDisplay = defaults.bool(forKey: Key.suppressOnSystemDockDisplay)
         reservesScreenSpace = defaults.bool(forKey: Key.reserveScreenSpace)
+        reordersLocally = defaults.bool(forKey: Key.localReordering)
+        tileOrder = TileOrderOverride(keys: defaults.stringArray(forKey: Key.tileOrder) ?? [])
         disabledDisplayKeys = Set(defaults.stringArray(forKey: Key.disabledDisplays) ?? [])
         launchesAtLogin = loginItemManager.isEnabled
     }
@@ -81,6 +94,18 @@ final class Preferences: ObservableObject {
         }
         guard keys != disabledDisplayKeys else { return }
         disabledDisplayKeys = keys
+    }
+
+    var activeTileOrder: TileOrderOverride {
+        reordersLocally ? tileOrder : .empty
+    }
+
+    func recordTileOrder(_ tiles: [DockTile]) {
+        let recorded = TileOrderOverride.recorded(tiles)
+        guard recorded != tileOrder else { return }
+        tileOrder = recorded
+        defaults.set(recorded.keys, forKey: Key.tileOrder)
+        onChange?()
     }
 
     func refreshAppMenuAuthorization() {

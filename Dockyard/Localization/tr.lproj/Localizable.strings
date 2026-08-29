@@ -20,6 +20,8 @@
 "settings.accessibility.footer" = "Erişilebilirlik izni, bir karonun menüsünde uygulamanın kendi pencerelerini ve Yeni Pencere ya da Sonraki Parça gibi komutlarını listeler, her küçültülmüş pencereye Çöp Sepeti'nden önce bir karo verir ve pencereleri çubuğun dışında tutmak için gereklidir.";
 "settings.reserveSpace" = "Pencereleri çubuğun dışında tut";
 "settings.reserveSpace.footer" = "Varsayılan olarak kapalı ve Dockyard'ın pencere yöneticisi olmama ilkesine bilinçli bir istisna. macOS üçüncü taraf bir uygulamanın ekran alanı ayırmasına izin vermez; bu açıkken Dockyard, çubukla çakışan pencereleri hareket ya da boyutlandırma bittikten sonra Erişilebilirlik üzerinden yeniden boyutlandırır. Rectangle ve Magnet gibi pencere yöneticileriyle çekişir ve kapatmak pencereleri eski haline döndürmez.";
+"settings.localReordering" = "Simgeleri kendi sıramla dizeyim";
+"settings.localReordering.footer" = "Varsayılan olarak kapalı. Açıkken bir simgeyi çubuk boyunca sürüklemek sırasını değiştirir, sıra Dockyard'ın kendi tercihlerinde tutulur ve bütün çubuklar bu sırayı alır. Gerçek Dock kendi sırasında kalır; onu değiştirmek Dock'un tercihlerini yazıp Dock'u yeniden başlatmak demek olurdu. Dock'un sonradan eklediği bir simge, Dock'un koyduğu yerde, kendisinden önceki simgenin yanında görünür.";
 "settings.displays.header" = "Dock gösterilecek ekranlar";
 "settings.displays.none" = "Henüz ekran algılanmadı.";
 "settings.displays.footer" = "Ekran tercihleri bağlantı kesilse de hatırlanır.";

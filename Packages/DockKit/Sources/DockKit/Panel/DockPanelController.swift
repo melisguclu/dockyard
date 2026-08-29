@@ -8,6 +8,8 @@ public final class DockPanelController: NSObject {
     public private(set) var displayID: CGDirectDisplayID
     public private(set) var isVisible = false
     public var onTrashChanged: (@MainActor () -> Void)?
+    public var onReorder: (@MainActor ([DockTile]) -> Void)?
+    public var allowsReordering = false
     public var revealState: DockRevealState { reveal.state }
 
     private let panel: DockPanel

@@ -52,6 +52,12 @@ struct SettingsView: View {
             } footer: {
                 footnote("settings.reserveSpace.footer")
             }
+
+            Section {
+                Toggle(isOn: $preferences.reordersLocally) { text("settings.localReordering") }
+            } footer: {
+                footnote("settings.localReordering.footer")
+            }
         }
         .formStyle(.grouped)
     }

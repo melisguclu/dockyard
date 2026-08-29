@@ -17,6 +17,19 @@ public final class DisplayCoordinator {
     public var onDisplaysChanged: (@MainActor ([DisplayInfo]) -> Void)?
     public var onTrashChanged: (@MainActor () -> Void)?
     public var onReservedAreasChanged: (@MainActor ([ReservedArea]) -> Void)?
+    public var onReorder: (@MainActor ([DockTile]) -> Void)?
+
+    public var allowsReordering = false {
+        didSet {
+            guard allowsReordering != oldValue else { return }
+            for controller in controllers.values {
+                controller.allowsReordering = allowsReordering
+            }
+            for controller in pooled.values {
+                controller.allowsReordering = allowsReordering
+            }
+        }
+    }
     public private(set) var activeIdentities: [DisplayIdentity] = []
 
     private let iconProvider: IconProvider
@@ -163,6 +176,7 @@ public final class DisplayCoordinator {
                 )
             )
             let controller = controller(for: display)
+            controller.allowsReordering = allowsReordering
             controller.bind(
                 to: screen,
                 displayID: display.displayID,
@@ -277,6 +291,8 @@ public final class DisplayCoordinator {
             metrics: metrics
         )
         created.onTrashChanged = { [weak self] in self?.onTrashChanged?() }
+        created.onReorder = { [weak self] tiles in self?.onReorder?(tiles) }
+        created.allowsReordering = allowsReordering
         controllers[display.identity] = created
         return created
     }

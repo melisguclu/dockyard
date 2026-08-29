@@ -12,6 +12,19 @@ public enum DockTileID: Hashable, Sendable {
     case builtin(DockTileBuiltin)
     case window(UInt64)
 
+    public var persistenceKey: String? {
+        switch self {
+        case .bundle(let identifier):
+            return "bundle:\(identifier)"
+        case .path(let path):
+            return "path:\(path)"
+        case .builtin(.trash):
+            return "builtin:trash"
+        case .builtin(.separator), .builtin(.spacer), .window:
+            return nil
+        }
+    }
+
     public static func application(bundleIdentifier: String?, path: String?) -> DockTileID? {
         if let bundleIdentifier, !bundleIdentifier.isEmpty { return .bundle(bundleIdentifier) }
         if let path, !path.isEmpty { return .path(path) }

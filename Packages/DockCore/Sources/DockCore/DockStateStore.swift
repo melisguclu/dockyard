@@ -23,6 +23,7 @@ public final class DockStateStore {
     private let preferencesWatcher: DockPreferencesWatcher
 
     private var resolved: ResolvedDockPreferences = .empty
+    private var tileOrderOverride: TileOrderOverride = .empty
     private var generation: UInt64 = 0
     private var resolveTask: Task<Void, Never>?
 
@@ -94,6 +95,12 @@ public final class DockStateStore {
         screenSpaceReserver.stop()
     }
 
+    public func setTileOrderOverride(_ override: TileOrderOverride) {
+        guard override != tileOrderOverride else { return }
+        tileOrderOverride = override
+        rebuild()
+    }
+
     public func reloadPreferences() {
         resolveTask?.cancel()
         resolveTask = Task { @MainActor [weak self] in
@@ -139,7 +146,9 @@ public final class DockStateStore {
             minimizedWindows: minimizedWindowStore.windows,
             trashIsEmpty: environment.trashIsEmpty()
         )
-        let tiles = DockItemMatching.applied(dockItemStore.items, to: ordered)
+        let tiles = tileOrderOverride.applied(
+            to: DockItemMatching.applied(dockItemStore.items, to: ordered)
+        )
 
         guard tiles != snapshot.tiles || resolved.appearance != snapshot.appearance else { return }
 

@@ -20,6 +20,8 @@
 "settings.accessibility.footer" = "Accessibility access lets a tile's menu list the app's own windows and commands, such as New Window or Next Track, gives every minimized window a tile before the Trash, and is required for keeping windows clear of the bar.";
 "settings.reserveSpace" = "Keep windows clear of the bar";
 "settings.reserveSpace.footer" = "Off by default, and a deliberate exception to Dockyard not being a window manager. macOS does not let a third-party app reserve screen space, so with this on Dockyard resizes windows that overlap a bar through Accessibility, after a move or resize settles. It will fight window managers such as Rectangle and Magnet, and turning it off does not put the windows back.";
+"settings.localReordering" = "Let me drag tiles into my own order";
+"settings.localReordering.footer" = "Off by default. With this on, dragging a tile along a bar reorders it, the order is kept in Dockyard's own preferences, and every bar adopts it. The real Dock keeps its own order, because changing that would mean writing the Dock's preferences and restarting it. A tile the Dock adds later appears where the Dock puts it, next to the tile it follows.";
 "settings.displays.header" = "Show a dock on";
 "settings.displays.none" = "No displays detected yet.";
 "settings.displays.footer" = "Per-display choices are remembered across disconnects.";
