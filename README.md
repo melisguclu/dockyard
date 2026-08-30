@@ -61,16 +61,19 @@ Dockyard is a menu bar agent with no Dock icon of its own. Its status item offer
 
 Dockyard is event-driven. There is no polling anywhere in the observation path: preference changes arrive through a distributed notification with a filesystem watcher as a backstop, application state through `NSWorkspace` notifications, minimize and restore through one `AXObserver` per application, and display changes through `CGDisplayRegisterReconfigurationCallback`. Snapshots are diffed before they are published and again before they are rendered, so the frequent notifications that do not change the rendered output cost nothing.
 
-Measured on an M1 MacBook Pro with a Studio Display, macOS 26.5, 20 tiles, `tilesize` 27:
+Measured on an M2 MacBook Pro with a Studio Display, macOS 26.5.2, 25 tiles, `tilesize` 31, one bar because the Studio Display hosts the real Dock:
 
 ```
-Idle CPU              0.0%
-Resident memory       37 MB
-Network connections   0
-Panels                1 (external display hosts the real Dock, so it is suppressed there)
+CPU at rest               0.0002% of one core   (0.2 ms of CPU in 120 s)
+Idle wakeups at rest      0                     (none at all in 120 s)
+Memory footprint          18.4 MB
+CPU while magnifying      0.58% of one core     (pointer swept at 500 pt/s)
+Magnification frame rate  59.8 /s on a 60 Hz display, one layout pass per vsync
+Cold start to first paint 117 ms
+Network connections       0, and no networking symbol linked into the binary
 ```
 
-Reproduce with `Scripts/benchmark.sh` while Dockyard is running. Idle-wakeup and frame-time numbers require `sudo powermetrics` and Instruments on real hardware; see `Docs/PERFORMANCE.md`.
+Reproduce with `Scripts/benchmark.sh` for the rest and memory figures and `Scripts/frame-trace.sh` for the frame figures, both while Dockyard is running. Neither needs `sudo`. `Docs/PERFORMANCE.md` has the full set, the method behind each number, and the twenty-three rules that produce them.
 
 ## Privacy and security
 

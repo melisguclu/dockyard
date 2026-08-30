@@ -299,7 +299,7 @@ Measured on an M1 MacBook Pro with nine applications running and eight minimized
 | With `kAXWindowCreated` and the full re-read | 0.006% | 42 MB |
 | Shipped | 0.001% | 42 MB |
 
-Resident memory does not move because every window of an application shares one rasterized tile: the tile is keyed on the application, not on the window. Layout does not move either — `DockGeometry.layout` is 0.003 ms at 24 tiles and 0.003 ms at 32 against a 4 ms frame budget, and still 0.005 ms at 64 — which is measured by `LayoutBenchmark`, skipped unless `DOCKYARD_BENCH` is set. The round trip from ⌘M to a rendered tile is under a second.
+The memory column is resident size, which is what this comparison was taken with; it counts shared framework pages and overstates the process by more than double, and `Docs/PERFORMANCE.md` explains why the footprint of about 18 MB is the number to budget against. What matters here is that the column does not move: every window of an application shares one rasterized tile, because the tile is keyed on the application, not on the window. Layout does not move either — `DockGeometry.layout` is 0.003 ms at 24 tiles and 0.003 ms at 32 against a 4 ms frame budget, and 0.006 ms at 64 — which is measured by `LayoutBenchmark`, skipped unless `DOCKYARD_BENCH` is set. The round trip from ⌘M to a rendered tile is under a second.
 
 ### Why the tile is a drawn card and not a thumbnail
 

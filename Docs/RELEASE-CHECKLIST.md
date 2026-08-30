@@ -156,8 +156,9 @@ Run every section on real hardware before tagging. Record the results in the rel
 
 ## 7. Performance
 
-- [ ] `Scripts/benchmark.sh` over 60 s idle: CPU, memory, wakeups within budget
-- [ ] `lsof -nP -a -p <pid> -i` empty
-- [ ] Instruments Core Animation during a magnification sweep within frame budget
+- [ ] `DURATION=120 Scripts/benchmark.sh` at rest: CPU, footprint and idle wakeups within budget, and both network checks pass
+- [ ] `Scripts/frame-trace.sh`: one `panel-layout` per vsync, no pass over the 4 ms budget, pacing line under 1% of the display's frames
+- [ ] `swift Scripts/latency.swift 10`: preference and quit latency within budget, `tilesize` restored afterwards
+- [ ] `DOCKYARD_BENCH=1 swift test --package-path Packages/DockKit -c release --filter layoutCost`
 - [ ] Activity Monitor energy impact 0.0 after 10 minutes idle
 - [ ] Numbers pasted into the release notes with the hardware and macOS version
