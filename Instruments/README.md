@@ -11,6 +11,9 @@ Dockyard emits `os_signpost` intervals in release builds under subsystem `com.do
 | `snapshot-build` | Ordering plus the diff decision |
 | `panel-layout` | One panel's geometry pass and layer application |
 | `icon-rasterize` | One icon resolved and rasterized to a `CGImage` |
+| `stack-read` | One folder listing read for a stack |
+
+`Scripts/frame-trace.sh` records and summarises the same intervals from the command line, without opening Instruments, and prints duration and pacing percentiles. Use the GUI when you need to see a stack alongside an interval; use the script when you need a number.
 
 ## Idle
 
@@ -28,7 +31,7 @@ Instruments: **Core Animation FPS**, **Time Profiler**, **os_signpost**.
 
 Method: enable Dock magnification in System Settings, record while sweeping the cursor across a bar at natural speed for about 10 seconds. Expect `panel-layout` intervals under 4 ms on Apple silicon and no dropped frames. `panel-layout` durations that grow with tile count point at a layout regression; a rising Time Profiler cost inside image decoding means an icon is being re-rasterized per frame instead of cached.
 
-Magnification is driven by a display link, so exactly one `panel-layout` interval per vsync is the healthy shape while the cursor moves, and none at all while it holds still. Two intervals inside one refresh period means something outside the link is forcing a layout. A gap longer than one refresh period while the cursor is still moving means the main thread missed a display-link callback, which is the only way this design can drop a frame.
+Magnification is driven by a display link, so exactly one `panel-layout` interval per vsync is the healthy shape while the cursor moves, and none at all while it holds still. Two intervals inside one refresh period means something outside the link is forcing a layout; that is not hypothetical, it is what AppKit's own window display cycle did until `DockContentView.layout()` learned to return when its bounds have not changed, and it is written up in `Docs/PERFORMANCE.md`. A gap longer than one refresh period while the cursor is still moving means the main thread missed a display-link callback, which is the only way this design can drop a frame.
 
 ## Memory
 

@@ -28,6 +28,7 @@ public final class DockContentView: NSView {
     private let tileHost = CALayer()
     var tileLayers: [DockTileID: DockTileLayer] = [:]
     var cursor: CGPoint?
+    private var laidOutBounds: CGRect = .null
     var pressedIdentifier: DockTileID?
     var dimmedIdentifier: DockTileID?
     var menuIdentifier: DockTileID?
@@ -169,6 +170,7 @@ public final class DockContentView: NSView {
     }
 
     private func performLayout() {
+        laidOutBounds = bounds
         let state = DockLog.signposts.beginInterval("panel-layout")
         defer { DockLog.signposts.endInterval("panel-layout", state) }
 
@@ -229,7 +231,9 @@ public final class DockContentView: NSView {
 
     override public func layout() {
         super.layout()
-        relayout()
+        if bounds != laidOutBounds {
+            relayout()
+        }
         updateTrackingAreas()
     }
 
