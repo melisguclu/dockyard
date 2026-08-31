@@ -208,7 +208,7 @@ That makes the feature the app's only optional permission. Without Accessibility
 
 ### Why the reads are cached rather than taken on right-click
 
-Every Accessibility read is a synchronous IPC into the target app, and a two-level walk of a menu bar is hundreds of them. `Scripts/probe-app-menus.swift` prints the live numbers; on an M1 MacBook Pro, macOS 26.5:
+Every Accessibility read is a synchronous IPC into the target app, and a two-level walk of a menu bar is hundreds of them. `Scripts/probe-app-menus.swift` prints the live numbers; on the machine described in `Docs/PERFORMANCE.md`, macOS 26.5:
 
 | | entries | AX calls | first walk | second walk |
 |---|---|---|---|---|
@@ -291,7 +291,7 @@ Two things had to come *out* of that design before it was quiet, and both are th
 
 `update(with:)` re-read every running application on every `NSWorkspace` notification, which is roughly nine reads per app switch and eighteen across the deactivate/activate pair. It now reads an application the first time it is seen and re-reads only the one that *becomes* frontmost, which is the rule `AppMenuStore` already follows and for the same reason: the observers keep everything else current, and the activation re-read exists only to retire a window that was destroyed while minimized. `MinimizedWindowStoreTests` pins both, with the authorization check injected so the tests do not depend on the grant the machine happens to hold.
 
-Measured on an M1 MacBook Pro with nine applications running and eight minimized windows, sampling only the seconds where the pointer was clear of every bar so the magnification display link does not contaminate the number:
+Measured on the machine described in `Docs/PERFORMANCE.md`, with nine applications running and eight minimized windows, sampling only the seconds where the pointer was clear of every bar so the magnification display link does not contaminate the number:
 
 | | idle CPU | resident memory |
 |---|---|---|
